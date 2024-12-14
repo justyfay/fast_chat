@@ -1,0 +1,133 @@
+version: '3.5'
+
+services:
+  postgres:
+    container_name: postgres_container
+    image: postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASS
+      POSTGRES_DB: $DB_NAME
+      PGDATA: scripts/data/postgres
+    volumes:
+      - .docker/scripts/pg_data:/var/lib/postgresql/data/pg_data
+      - .docker/scripts/:/scripts-entrypoint-initdb.d/
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $DB_USER -d $DB_NAME" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+  
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+       - .docker/pgadmin:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  redis:
+    image: redis
+    container_name: redis_db
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fast_chat:
+    image: fast_chat:latest
+    container_name: fast_chat
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      PGHOST: ${DB_HOST}
+      PGPORT: ${DB_PORT}
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASS}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    command:  [ "/fast_chat/scripts/run.sh"]
+
+  celery:
+    image: chat_celery
+    build:
+      context: .
+    container_name: chat_celery
+    command: [ "/fast_chat/scripts/celery.sh", "celery" ]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  celery_beat:
+    image: chat_celery_beat
+    build:
+      context: .
+    container_name: chat_celery_beat
+    command: [ "/fast_chat/scripts/celery.sh", "celery_beat" ]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+
+  flower:
+    image: chat_flower
+    build:
+      context: .
+    container_name: chat_flower
+    command: [ "/fast_chat/scripts/celery.sh", "flower" ]
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  bot:
+    container_name: bot
+    build:
+      context: ./bot
+    env_file:
+      - ./bot/.env
+
+
+networks:
+  postgres:
+    driver: bridge
+
+volumes:
+    postgres:
+    pgadmin:

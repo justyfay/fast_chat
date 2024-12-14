@@ -1,0 +1,408 @@
+<html><head>
+<meta charset="UTF-8">
+<title>Fast Chat</title>
+<style>
+:root {
+  --dark-bg: #1a1a1a;
+  --darker-bg: #0f0f0f; 
+  --light-text: #e0e0e0;
+  --accent: #7289da;
+  --secondary: #2c2f33;
+  --hover: #3a3d42;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: var(--dark-bg);
+  color: var(--light-text);
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+}
+
+.sidebar {
+  background-color: var(--darker-bg);
+  padding: 1rem;
+  border-right: 1px solid var(--secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.search-container {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid var(--secondary);
+  background-color: var(--secondary);
+  color: var(--light-text);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.users-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.user-item:hover {
+  background-color: var(--hover);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.main-chat {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  padding: 1rem;
+  background-color: var(--darker-bg);
+  border-bottom: 1px solid var(--secondary);
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message {
+  display: flex;
+  gap: 1rem;
+  max-width: 70%;
+}
+
+.message.sent {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.message-content {
+  background-color: var(--secondary);
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.message.sent .message-content {
+  background-color: var(--accent);
+}
+
+.chat-input-container {
+  padding: 1rem;
+  background-color: var(--darker-bg);
+  display: flex;
+  gap: 1rem;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--secondary);
+  background-color: var(--secondary);
+  color: var(--light-text);
+  resize: none;
+}
+
+.send-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.send-button:hover {
+  opacity: 0.9;
+}
+
+.online-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #43b581;
+  margin-left: auto;
+}
+</style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="user-item" id="my_account" data-user-id="{{current_user.id}}">
+      <span class="user-name">Hello, <b>{{current_user.full_name}}!</b> <button id="logout-button">Logout</button></span>
+      </div>
+    <div class="search-container">
+      <input type="text" class="search-input" placeholder="Search users...">
+    </div>
+
+    <div class="users-list">
+      </div>
+
+    </div>
+  </div>
+
+  <div class="main-chat">
+    <div class="chat-header">
+      <h2>Чат с пользователем <span class="current-chat-name">...</span></h2>
+    </div>
+    
+    <div class="chat-messages">
+      <!-- Messages will be dynamically populated -->
+    </div>
+    
+    <div class="chat-input-container" id="chat-input">
+      <textarea class="chat-input" placeholder="Type a message..."></textarea>
+      <button class="send-button" id="submit">Send</button>
+    </div>
+  </div>
+
+<script>
+
+
+let selectedUserId = null;
+let socket = null;
+
+
+class ChatApp {
+
+  constructor(response_data) {
+    this.users = []
+    const currentUser = document.getElementById('my_account').getAttribute('data-user-id')
+    response_data.then(users => {
+      for (let i = 0; i < users.length; i++) {
+        if (users[i].id !== parseInt(currentUser))  {
+        this.users.push({ id: users[i].id, name: users[i].full_name, online: true })
+      }
+      this.currentChat = null;
+
+      this.init()
+      }
+    })
+  }
+  init() {
+    this.populateUsers();
+    this.setupEventListeners();
+  }
+
+  populateUsers() {
+    const usersList = document.querySelector('.users-list');
+    usersList.innerHTML = this.users.map(user => `
+      <div class="user-item" data-user-id="${user.id}">
+        <div class="user-avatar">${user.name[0]}</div>
+        <span class="user-name">${user.name}</span>
+        ${user.online ? '<div class="online-indicator"></div>' : ''}
+      </div>
+    `).join('');
+  }
+  
+  setupEventListeners() {
+    // Search functionality
+    const searchInput = document.querySelector('.search-input');
+    searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+    
+    // User selection
+    const userItems = document.querySelectorAll('.user-item');
+    userItems.forEach(item => {
+      item.addEventListener('click', () => this.selectUser(item.dataset.userId));
+    });
+    
+    // Message sending
+    const sendButton = document.querySelector('.send-button');
+    const chatInput = document.querySelector('.chat-input');
+    
+    sendButton.addEventListener('click', () => this.sendMessage());
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.sendMessage();
+      }
+    });
+  }
+  
+  handleSearch(query) {
+    const filteredUsers = this.users.filter(user => 
+      user.name.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    const usersList = document.querySelector('.users-list');
+    usersList.innerHTML = filteredUsers.map(user => `
+      <div class="user-item" data-user-id="${user.id}">
+        <div class="user-avatar">${user.name[0]}</div>
+        <span class="user-name">${user.name}</span>
+        ${user.online ? '<div class="online-indicator"></div>' : ''}
+      </div>
+    `).join('');
+    
+    // Reattach event listeners
+    this.setupEventListeners();
+  }
+
+  async selectUser(userId) {
+    this.currentChat = this.users.find(user => user.id === parseInt(userId));
+    selectedUserId = userId;
+    document.querySelector('.current-chat-name').textContent = this.currentChat.name;
+    this.clearMessages();
+
+    await this.connectWebSocket()
+    await this.loadMessages(userId);
+  }
+
+   async sendMessage() {
+    const messageInput = document.querySelector('.chat-input');
+    const message = messageInput.value.trim();  // Берем текст сообщения
+
+    const currentUser = document.getElementById('my_account').getAttribute('data-user-id')
+
+    if (message && selectedUserId) {
+        const payload = {recipient_id: selectedUserId, body: message, sender_id: currentUser};
+
+        try {
+            socket.send(JSON.stringify(payload));
+            messageInput.value = '';
+        } catch (error) {
+            console.error('Ошибка при отправке сообщения:', error);  // Ловим ошибки
+        }
+    }
+}
+
+
+
+  async addMessage(message) {
+    const chatMessages = document.querySelector('.chat-messages');
+    const messageElement = document.createElement('div');
+
+    const currentUser = document.getElementById('my_account').getAttribute('data-user-id')
+    let avatarName = ''
+    if (parseInt(message.content.sender_id) === parseInt(currentUser)){
+        messageElement.className = 'message sent';
+        avatarName = 'You'
+    }
+    else {
+       messageElement.className = 'message ';
+       avatarName = this.currentChat.name[0]
+    }
+
+    messageElement.innerHTML = `
+      <div class="user-avatar">${avatarName}</div>
+      <div class="message-content">
+        <div class="message-text">${message.content.body}</div>
+      </div>
+    `;
+
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+
+  async loadMessages(userId) {
+    try {
+        const response = await fetch(`${window.location.href}v1/messages/${userId}`);  // Делаем запрос на сервер, чтобы получить старые сообщения
+        const messages = await response.json();  // Преобразуем ответ в JSON
+        const messagesContainer = document.getElementsByClassName('chat-messages');
+
+        messagesContainer.innerHTML = messages.map(message =>
+            this.addMessage({
+                content: message
+            })
+        ).join('');  // Склеиваем элементы и вставляем их в контейнер сообщений
+    } catch (error) {
+        console.error('Ошибка загрузки сообщений:', error);
+    }
+}
+
+  async connectWebSocket() {
+    const currentUser = document.getElementById('my_account').getAttribute('data-user-id')
+
+    socket = new WebSocket(`ws://${window.location.host}/v1/ws/${currentUser}`);
+
+    socket.onopen = () => console.log('WebSocket соединение открыто.');
+
+    socket.onmessage = (event) => {
+        const incomingMessage = JSON.parse(event.data);  // Получаем новое сообщение от сервера
+        console.log(incomingMessage)
+         if (parseInt(incomingMessage.sender_id) === parseInt(selectedUserId) || (parseInt(incomingMessage.recipient_id) === parseInt(selectedUserId))) {
+           this.addMessage({content: incomingMessage});  // Добавляем сообщение в чат
+         }
+    };
+
+    socket.onclose = () => console.log('WebSocket соединение закрыто.');
+
+  }
+
+  clearMessages() {
+    document.querySelector('.chat-messages').innerHTML = '';
+  }
+}
+
+// Initialize the chat application
+document.addEventListener('DOMContentLoaded', async () => {
+  let response = await fetch(`${window.location.href}v1/users/all`, {
+    method: "GET",
+    headers: {'Content-Type': 'application/json'},
+  });
+  let response_data = response.json();
+  new ChatApp(response_data);
+});
+
+// Logout button click handler
+document.getElementById("logout-button").addEventListener("click", async () => {
+    try {
+        // Send a POST request to the FastAPI logout endpoint
+        const response = await fetch(`${window.location.href}v1/auth/logout`, {
+            method: "POST",
+            credentials: "include", // Include cookies in the request
+        });
+
+        if (response.ok) {
+            // Clear the session cookie (if needed)
+            document.cookie = "session_cookie=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+            alert("Logged out successfully!");
+            // Redirect to login page or another page
+            window.location.href = `${window.location.href}`;
+        } else {
+            alert("Failed to log out. Please try again.");
+        }
+    } catch (error) {
+        console.error("Error during logout:", error);
+        alert("An error occurred during logout. Please try again.");
+    }
+});
+</script>
+</body></html>

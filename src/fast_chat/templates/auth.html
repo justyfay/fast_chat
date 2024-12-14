@@ -1,0 +1,252 @@
+<html lang="ru-RU"><head><base href="/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login & Registration</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: #1a1a1a;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(45deg, #1a1a1a, #2d2d2d);
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2rem;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+    overflow: hidden;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #b3b3b3;
+    font-size: 0.9rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #7c4dff;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.btn {
+    width: 100%;
+    padding: 1rem;
+    background: #7c4dff;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    background: #6c3fef;
+    transform: translateY(-2px);
+}
+
+.switch-form {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.switch-form a {
+    color: #7c4dff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.switch-form a:hover {
+    text-decoration: underline;
+}
+
+.form-title {
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 1.8rem;
+    color: #fff;
+}
+
+.forms-container {
+    position: relative;
+    transition: transform 0.5s ease;
+}
+
+.login-form, .register-form {
+    transition: opacity 0.3s ease;
+}
+
+.register-form {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.active-form {
+    animation: fadeIn 0.5s ease forwards;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="forms-container">
+        <!-- Login Form -->
+        <div class="login-form active-form">
+            <h2 class="form-title">Вход</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn">Войти</button>
+            </form>
+            <div class="switch-form">
+                <p>Нет аккаунта? <a href="javascript:void(0)" onclick="switchForm('register')">Зарегистрироваться</a></p>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div class="register-form">
+            <h2 class="form-title">Регистрация</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="registerName">Имя</label>
+                    <input type="text" id="registerName" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="telegram">Уникальный Telegram-код из <a href="https://t.me/fast_api_chat_bot">бота</a>.</label>
+                    <input type="text" id="telegram">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Пароль</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Подтвердите пароль</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn">Зарегистрироваться</button>
+            </form>
+            <div class="switch-form">
+                <p>Уже есть аккаунт? <a href="javascript:void(0)" onclick="switchForm('login')">Войти</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchForm(form) {
+    const loginForm = document.querySelector('.login-form');
+    const registerForm = document.querySelector('.register-form');
+    
+    if (form === 'register') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        registerForm.classList.add('active-form');
+        loginForm.classList.remove('active-form');
+    } else {
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        loginForm.classList.add('active-form');
+        registerForm.classList.remove('active-form');
+    }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    // Add login logic here
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    let response = await fetch("/v1/auth/login", {
+        method: "POST",
+        headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+        body: new URLSearchParams({"username": email, "password": password})
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+            window.location.href = "/";
+        } else {
+            alert(result.message || 'Ошибка выполнения запроса!');
+            return null;
+        }
+});
+
+document.getElementById('registerForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    // Add registration logic here
+    const name = document.getElementById('registerName').value;
+    const email = document.getElementById('registerEmail').value;
+    const telegram = document.getElementById('telegram').value;
+    const password = document.getElementById('registerPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) {
+        alert('Пароли не совпадают');
+        return;
+    }
+    let response = await fetch("/v1/auth/register", {
+        method: "POST",
+        headers: {'Content-Type': 'application/json'},
+        body: `{"full_name": "${name}", "email": "${email}", "telegram_unic_code": "${telegram}", "password": "${password}", "repeat_password": "${confirmPassword}"}`
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+            alert(result.message || 'Регистрация выполнена успешно! Войдите систему с данными, введенными при регистрации. ');
+            return result;
+        } else {
+            alert(result.message || 'Ошибка выполнения запроса!');
+            return null;
+        }
+})
+</script>
+
+</body>
+</html>
