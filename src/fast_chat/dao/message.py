@@ -47,5 +47,5 @@ class MessageDAO(BaseDAO):
             )  # noqa
             query_execute: Result[tuple | Any] = await session.execute(query)
             result: Sequence[RowMapping | Any] | None = query_execute.scalars().all()
-            logger.debug(f"Result: '{result}'")
+            logger.debug(f"[message] get_messages_between_users: count={len(result) if result else 0}")
             return result

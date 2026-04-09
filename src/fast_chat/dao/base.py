@@ -22,7 +22,7 @@ class BaseDAO:
             )
             query_execute: Result[tuple | Any] = await session.execute(query)
             result: RowMapping | None = query_execute.mappings().one_or_none()
-            logger.debug(f"Result: '{result}'")
+            logger.debug(f"[{cls.model.__tablename__}] find_one_or_none: found={result is not None}")
             return result
 
     @classmethod
@@ -35,7 +35,7 @@ class BaseDAO:
             )
             query_execute: Result[tuple | Any] = await session.execute(query)
             result: Sequence[RowMapping] = query_execute.mappings().all()
-            logger.debug(f"Result: '{result}'")
+            logger.debug(f"[{cls.model.__tablename__}] find_all: count={len(result)}")
             return result
 
     @classmethod
@@ -48,18 +48,14 @@ class BaseDAO:
             async with db_session as session:
                 query_execute: Result[tuple | Any] = await session.execute(query)
                 result: RowMapping | None = query_execute.mappings().first()
-                logger.debug(f"Result: '{result}'")
+                logger.debug(f"[{cls.model.__tablename__}] add: id={result['id'] if result else None}")
                 await session.commit()
                 return result
         except (SQLAlchemyError, Exception) as e:
             if isinstance(e, SQLAlchemyError):
-                msg: str = (
-                    "Database Exc: Cannot insert data into table. Details: {}".format(e)
-                )
+                msg = "Database Exc: Cannot insert data into table. Details: {}".format(e)
             elif isinstance(e, Exception):
-                msg: str = (
-                    "Unknown Exc: Cannot insert data into table. Details: {}".format(e)
-                )
+                msg = "Unknown Exc: Cannot insert data into table. Details: {}".format(e)
 
             logger.error(msg, extra={"table": cls.model.__tablename__}, exc_info=True)
             return None

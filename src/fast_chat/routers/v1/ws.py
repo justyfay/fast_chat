@@ -13,6 +13,7 @@ from logger import get_logger
 from src.fast_chat.dependencies.database import get_session
 from src.fast_chat.schemas.message import MessageRead
 from src.fast_chat.tasks.tasks import send_notification_to_telegram
+from src.fast_chat.utils.crypto import encrypt, decrypt
 
 logger = get_logger()
 ws_router = APIRouter(prefix="/ws", tags=["Сокеты"])
@@ -25,7 +26,7 @@ async def websocket_endpoint(
 ):
     await websocket.accept()
     active_connections[user_id] = websocket
-    logger.debug(f"Активные подключения: {active_connections}")
+    logger.debug(f"Активные подключения: {list(active_connections.keys())}")
 
     try:
         while True:
@@ -34,14 +35,16 @@ async def websocket_endpoint(
                 append_msg: RowMapping = await MessageDAO.add(
                     db_session=session,
                     sender_id=int(data["sender_id"]),
-                    body=data["body"],
+                    body=encrypt(data["body"]),
                     recipient_id=int(data["recipient_id"]),
                 )
                 appended_msg: RowMapping = await MessageDAO.find_one_or_none(
                     db_session=session, id=append_msg["id"]
                 )
-                validated_msg = MessageRead.model_validate(appended_msg)
-                logger.debug(f"Получено сообщение от: '{data['sender_id']}'. ")
+                validated_msg = MessageRead.model_validate(
+                    {**dict(appended_msg), "body": decrypt(appended_msg["body"])}
+                )
+                logger.debug(f"Получено сообщение от: '{data['sender_id']}', id={append_msg['id']}.")
 
             except Exception as e:
                 logger.debug(f"Ошибка во время сохранения сообщения в БД: '{e}'.")
@@ -57,7 +60,7 @@ async def websocket_endpoint(
 
                 await websocket_recipient.send_json(validated_msg.model_dump())
                 logger.debug(
-                    f"Сообщение '{appended_msg}' отправлено пользователю: '{data['recipient_id']}'",
+                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{data['recipient_id']}'",
                 )
 
             else:
@@ -70,7 +73,7 @@ async def websocket_endpoint(
 
                 if recipient_user.telegram_unic_code is not None:
                     logger.debug(
-                        f"Пользователь '{recipient_user.id} оффлайн. Отправляем сообщение в Телегам.'",
+                        f"Пользователь '{recipient_user.id}' оффлайн. Отправляем сообщение в Телеграм.",
                     )
                     send_notification_to_telegram.delay(
                         chat_id=recipient_user.telegram_unic_code,
@@ -88,7 +91,7 @@ async def websocket_endpoint(
 
                 await websocket_recipient.send_json(validated_msg.model_dump())
                 logger.debug(
-                    f"Сообщение '{appended_msg}' отправлено пользователю: '{data['sender_id']}'",
+                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{data['sender_id']}'",
                 )
 
     except WebSocketDisconnect:

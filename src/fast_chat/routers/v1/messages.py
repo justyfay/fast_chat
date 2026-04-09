@@ -6,6 +6,7 @@ from src.fast_chat.dao.message import MessageDAO
 from src.fast_chat.dependencies.auth import get_current_user
 from src.fast_chat.dependencies.database import get_session
 from src.fast_chat.schemas.message import MessageCreate, MessageRead
+from src.fast_chat.utils.crypto import encrypt, decrypt
 
 msg_router = APIRouter(prefix="/messages", tags=["Сообщения"])
 
@@ -19,7 +20,7 @@ async def send_message(
     await MessageDAO.add(
         db_session=session,
         sender_id=current_user.id,
-        body=message.body,
+        body=encrypt(message.body),
         recipient_id=message.recipient_id,
     )
 
@@ -37,9 +38,18 @@ async def get_messages(
     current_user: RowMapping = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    return (
+    messages = (
         await MessageDAO.get_messages_between_users(
             db_session=session, user_id_1=user_id, user_id_2=current_user.id
         )
         or []
     )
+    return [
+        MessageRead(
+            id=msg.id,
+            sender_id=msg.sender_id,
+            recipient_id=msg.recipient_id,
+            body=decrypt(msg.body),
+        )
+        for msg in messages
+    ]
