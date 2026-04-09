@@ -6,7 +6,13 @@ from passlib.context import CryptContext
 
 from config import settings
 
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_context = CryptContext(
+    schemes=["argon2"],
+    deprecated="auto",
+    argon2__rounds=12,
+    argon2__memory_cost=65536,
+    argon2__parallelism=2,
+)
 
 
 def get_hashed_password(password: str) -> str:

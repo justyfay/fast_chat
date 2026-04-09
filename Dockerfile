@@ -1,15 +1,17 @@
-FROM python:3.12
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /fast_chat
 
-COPY /pyproject.toml /fast_chat
+COPY pyproject.toml uv.lock README.md ./
 
-
-RUN pip3 install -U poetry
-RUN poetry config virtualenvs.path --unset
-RUN poetry config virtualenvs.in-project false
-RUN poetry install  --no-ansi --no-root
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY . .
 
+RUN uv sync --frozen --no-dev
+
 RUN chmod a+x /fast_chat/scripts/*.sh
+
+ENV PATH="/fast_chat/.venv/bin:$PATH"

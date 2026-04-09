@@ -1,15 +1,23 @@
 import asyncio
 import logging
-import os
 
 from aiogram import Bot, types, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
+from config import settings
 
-telegram_bot: Bot = Bot(token=os.getenv("BOT_TOKEN"))
+_telegram_bot: Bot | None = None
 storage: MemoryStorage = MemoryStorage()
 dp: Dispatcher = Dispatcher(storage=storage)
+
+
+def get_bot() -> Bot:
+    """Метод создания экземпляра Бота при первом обращении."""
+    global _telegram_bot
+    if _telegram_bot is None:
+        _telegram_bot = Bot(token=settings.bot_token)
+    return _telegram_bot
 
 
 @dp.message(Command(commands=["start"]))
@@ -33,7 +41,7 @@ async def cmd_help(message: types.Message, state: FSMContext) -> None:
 
 async def main() -> None:
     try:
-        await dp.start_polling(telegram_bot, close_bot_session=True)
+        await dp.start_polling(get_bot(), close_bot_session=True)
     except Exception as e:
         logging.exception(f"Неожиданная ошибка при запуске бота: '{e}'")
 

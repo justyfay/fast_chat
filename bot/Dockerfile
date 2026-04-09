@@ -1,12 +1,15 @@
-FROM python:3.12
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /bot
 
-COPY requirements.txt ./
+COPY pyproject.toml uv.lock ./
 
-RUN pip install -r requirements.txt --no-cache-dir
+RUN uv sync --frozen --no-dev
 
 COPY . .
 
+ENV PATH="/bot/.venv/bin:$PATH"
 
 CMD ["python", "main.py"]
