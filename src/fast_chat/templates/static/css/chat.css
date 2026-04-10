@@ -72,9 +72,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow: hidden;
 }
 
 .dm-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.dm-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -171,9 +180,19 @@ body {
   overflow-y: auto;
 }
 
-.users-list {
-  flex: 1;
+.messages-list {
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.messages-empty {
+  font-size: 0.78rem;
+  color: #72767d;
+  padding: 0.5rem 0.5rem 0.25rem;
+  line-height: 1.4;
 }
 
 .user-item {
@@ -184,6 +203,7 @@ body {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+  position: relative;
 }
 
 .user-item:hover {
@@ -193,6 +213,32 @@ body {
 .user-item.active {
   background-color: var(--hover);
   border-left: 3px solid var(--accent);
+}
+
+.remove-chat-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #72767d;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.messages-list .user-item:hover .remove-chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-chat-btn:hover {
+  color: #ed4245;
+  background-color: rgba(237, 66, 69, 0.12);
 }
 
 #my_account {
@@ -340,7 +386,6 @@ body {
   opacity: 0.5;
 }
 
-/* ── Messages ── */
 .message {
   display: flex;
   gap: 1rem;

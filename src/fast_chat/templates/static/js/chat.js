@@ -4,52 +4,121 @@ let selectedUserId = null;
 let socket = null;
 
 
+
+const API = {
+  base: () => window.location.href,
+
+  async getConversations() {
+    const r = await fetch(`${this.base()}v1/conversations/`);
+    return r.json();
+  },
+
+  async addConversation(partnerId) {
+    const r = await fetch(`${this.base()}v1/conversations/${partnerId}`, {
+      method: 'POST',
+    });
+    return r.json();
+  },
+
+  async deleteConversation(partnerId) {
+    const r = await fetch(`${this.base()}v1/conversations/${partnerId}`, {
+      method: 'DELETE',
+    });
+    return r.ok;
+  },
+
+  async searchAvailableUsers(query = '') {
+    const qs = query ? `?q=${encodeURIComponent(query)}` : '';
+    const r = await fetch(`${this.base()}v1/conversations/search${qs}`);
+    return r.json();
+  },
+
+  async getMessages(userId) {
+    const r = await fetch(`${this.base()}v1/messages/${userId}`);
+    return r.json();
+  },
+};
+
+
 class ChatApp {
 
-  constructor(response_data) {
-    this.users = [];
-    const currentUser = document.getElementById('my_account').getAttribute('data-user-id');
-    response_data.then(users => {
-      for (let i = 0; i < users.length; i++) {
-        if (users[i].id !== parseInt(currentUser)) {
-          this.users.push({ id: users[i].id, name: users[i].full_name, online: true });
-        }
-      }
-      this.currentChat = null;
-      this.init();
-    });
+  constructor() {
+    this.conversations = [];
+    this.currentChat = null;
+    this.init();
   }
 
-  init() {
-    this.populateUsers();
+  async init() {
+    await this.loadConversations();
     this.setupEventListeners();
     this.restoreSelectedChat();
     document.getElementById('close-chat-btn').addEventListener('click', () => this.closeChat());
   }
 
-  populateUsers() {
-    const usersList = document.querySelector('.users-list');
-    usersList.innerHTML = this.users.map(user => `
-      <div class="user-item" data-user-id="${user.id}">
-        <div class="user-avatar">
-          ${user.name[0]}
-          ${user.online ? '<div class="online-indicator"></div>' : ''}
-        </div>
-        <span class="user-name">${user.name}</span>
-      </div>
-    `).join('');
+  async loadConversations() {
+    this.conversations = await API.getConversations();
+    this.renderConversations();
   }
 
-  setupEventListeners() {
-    // Кнопка открытия модалки поиска
-    const dmAddBtn = document.getElementById('dm-add-btn');
-    const searchOverlay = document.getElementById('search-modal-overlay');
-    const searchInput = document.getElementById('search-input');
+  renderConversations() {
+    const list = document.getElementById('messages-list');
+    if (!this.conversations.length) {
+      list.innerHTML = '<div class="messages-empty">Нет чатов. Нажмите + чтобы найти пользователя.</div>';
+      return;
+    }
+    list.innerHTML = this.conversations.map(user => this._userItemHtml(user)).join('');
 
-    dmAddBtn.addEventListener('click', () => {
+    list.querySelectorAll('.user-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.remove-chat-btn')) return;
+        this.selectUser(item.dataset.userId);
+      });
+    });
+
+    list.querySelectorAll('.remove-chat-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeConversation(parseInt(btn.dataset.partnerId));
+      });
+    });
+
+    this.highlightActiveUser();
+  }
+
+  _userItemHtml(user) {
+    return `
+      <div class="user-item" data-user-id="${user.id}">
+        <div class="user-avatar">${user.full_name[0].toUpperCase()}</div>
+        <span class="user-name">${user.full_name}</span>
+        <button class="remove-chat-btn" data-partner-id="${user.id}" title="Удалить чат">✕</button>
+      </div>
+    `;
+  }
+
+  async removeConversation(partnerId) {
+    const ok = await API.deleteConversation(partnerId);
+    if (!ok) {
+      showToast('Не удалось удалить чат', 'error');
+      return;
+    }
+    if (selectedUserId && parseInt(selectedUserId) === partnerId) {
+      this.closeChat();
+    }
+    this.conversations = this.conversations.filter(u => u.id !== partnerId);
+    this.renderConversations();
+  }
+
+
+  setupEventListeners() {
+    const dmAddBtn      = document.getElementById('dm-add-btn');
+    const searchOverlay = document.getElementById('search-modal-overlay');
+    const searchInput   = document.getElementById('search-input');
+
+    dmAddBtn.addEventListener('click', async () => {
       searchOverlay.classList.add('open');
       searchInput.value = '';
-      this.renderSearchResults(this.users);
+      const users = await API.searchAvailableUsers();
+      this.renderSearchResults(users);
       searchInput.focus();
     });
 
@@ -61,11 +130,9 @@ class ChatApp {
       if (e.key === 'Escape') searchOverlay.classList.remove('open');
     });
 
-    searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
-
-    const userItems = document.querySelectorAll('.users-list .user-item');
-    userItems.forEach(item => {
-      item.addEventListener('click', () => this.selectUser(item.dataset.userId));
+    searchInput.addEventListener('input', async (e) => {
+      const users = await API.searchAvailableUsers(e.target.value);
+      this.renderSearchResults(users);
     });
 
     const sendButton   = document.getElementById('submit');
@@ -119,41 +186,6 @@ class ChatApp {
     });
   }
 
-  renderEmojiPicker(data) {
-    const body = document.getElementById('emoji-body');
-    if (!data.length) {
-      body.innerHTML = '<div style="color:#72767d;font-size:0.85rem;padding:0.25rem 0.5rem">Nothing found</div>';
-      return;
-    }
-    body.innerHTML = data.map(cat =>
-      `<div>
-        <div class="emoji-category-title">${cat.name}</div>
-        <div class="emoji-grid">${cat.emojis.map(e =>
-          `<button class="emoji-item" title="${e.k[0]}">${e.e}</button>`
-        ).join('')}</div>
-      </div>`
-    ).join('');
-
-    body.querySelectorAll('.emoji-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const ta = document.getElementById('chat-textarea');
-        const s = ta.selectionStart, end = ta.selectionEnd;
-        ta.value = ta.value.slice(0, s) + btn.textContent + ta.value.slice(end);
-        const pos = s + btn.textContent.length;
-        ta.setSelectionRange(pos, pos);
-        ta.focus();
-        document.getElementById('emoji-picker').classList.remove('open');
-      });
-    });
-  }
-
-  handleSearch(query) {
-    const filtered = this.users.filter(user =>
-      user.name.toLowerCase().includes(query.toLowerCase())
-    );
-    this.renderSearchResults(filtered);
-  }
-
   renderSearchResults(users) {
     const container = document.getElementById('search-modal-results');
     if (!users.length) {
@@ -162,31 +194,34 @@ class ChatApp {
     }
     container.innerHTML = users.map(user => `
       <div class="user-item" data-user-id="${user.id}">
-        <div class="user-avatar">
-          ${user.name[0]}
-          ${user.online ? '<div class="online-indicator"></div>' : ''}
-        </div>
-        <span class="user-name">${user.name}</span>
+        <div class="user-avatar">${user.full_name[0].toUpperCase()}</div>
+        <span class="user-name">${user.full_name}</span>
       </div>
     `).join('');
 
     container.querySelectorAll('.user-item').forEach(item => {
-      item.addEventListener('click', () => {
-        document.getElementById('search-modal-overlay').classList.remove('open');
-        this.selectUser(item.dataset.userId);
-      });
+      item.addEventListener('click', () => this.addConversationFromSearch(item.dataset.userId));
     });
   }
 
+  async addConversationFromSearch(userId) {
+    document.getElementById('search-modal-overlay').classList.remove('open');
+
+    await API.addConversation(userId);
+    await this.loadConversations();
+    this.selectUser(userId);
+  }
+
+
   restoreSelectedChat() {
     const savedUserId = localStorage.getItem(STORAGE_KEY_SELECTED_USER);
-    if (savedUserId && this.users.find(u => u.id === parseInt(savedUserId))) {
+    if (savedUserId && this.conversations.find(u => u.id === parseInt(savedUserId))) {
       this.selectUser(savedUserId);
     }
   }
 
   highlightActiveUser() {
-    document.querySelectorAll('.users-list .user-item').forEach(item => {
+    document.querySelectorAll('#messages-list .user-item').forEach(item => {
       item.classList.toggle('active', item.dataset.userId === String(selectedUserId));
     });
   }
@@ -218,13 +253,13 @@ class ChatApp {
   }
 
   async selectUser(userId) {
-    this.currentChat = this.users.find(user => user.id === parseInt(userId));
+    this.currentChat = this.conversations.find(u => u.id === parseInt(userId));
     if (!this.currentChat) return;
 
     selectedUserId = userId;
     localStorage.setItem(STORAGE_KEY_SELECTED_USER, userId);
 
-    document.querySelector('.current-chat-name').textContent = this.currentChat.name;
+    document.querySelector('.current-chat-name').textContent = this.currentChat.full_name;
     this.clearMessages();
     this.showChatArea();
     this.highlightActiveUser();
@@ -260,7 +295,7 @@ class ChatApp {
       avatarName = 'You';
     } else {
       messageElement.className = 'message';
-      avatarName = this.currentChat.name[0];
+      avatarName = this.currentChat.full_name[0].toUpperCase();
     }
 
     const safeHtml = marked.parse(message.content.body ?? '');
@@ -277,8 +312,7 @@ class ChatApp {
 
   async loadMessages(userId) {
     try {
-      const response = await fetch(`${window.location.href}v1/messages/${userId}`);
-      const messages = await response.json();
+      const messages = await API.getMessages(userId);
       for (const message of messages) {
         await this.addMessage({ content: message });
       }
@@ -299,7 +333,6 @@ class ChatApp {
 
     socket.onmessage = (event) => {
       const incomingMessage = JSON.parse(event.data);
-      console.log(incomingMessage);
       if (
         parseInt(incomingMessage.sender_id) === parseInt(selectedUserId) ||
         parseInt(incomingMessage.recipient_id) === parseInt(selectedUserId)
@@ -314,6 +347,7 @@ class ChatApp {
   clearMessages() {
     document.getElementById('chat-messages').innerHTML = '';
   }
+
 
   applyFormat(action) {
     const ta = document.getElementById('chat-textarea');
@@ -345,16 +379,40 @@ class ChatApp {
     const newEnd   = newStart + inner.length;
     ta.setSelectionRange(newStart, newEnd);
   }
+
+
+  renderEmojiPicker(data) {
+    const body = document.getElementById('emoji-body');
+    if (!data.length) {
+      body.innerHTML = '<div style="color:#72767d;font-size:0.85rem;padding:0.25rem 0.5rem">Nothing found</div>';
+      return;
+    }
+    body.innerHTML = data.map(cat =>
+      `<div>
+        <div class="emoji-category-title">${cat.name}</div>
+        <div class="emoji-grid">${cat.emojis.map(e =>
+          `<button class="emoji-item" title="${e.k[0]}">${e.e}</button>`
+        ).join('')}</div>
+      </div>`
+    ).join('');
+
+    body.querySelectorAll('.emoji-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ta = document.getElementById('chat-textarea');
+        const s = ta.selectionStart, end = ta.selectionEnd;
+        ta.value = ta.value.slice(0, s) + btn.textContent + ta.value.slice(end);
+        const pos = s + btn.textContent.length;
+        ta.setSelectionRange(pos, pos);
+        ta.focus();
+        document.getElementById('emoji-picker').classList.remove('open');
+      });
+    });
+  }
 }
 
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const response = await fetch(`${window.location.href}v1/users/all`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  const response_data = response.json();
-  new ChatApp(response_data);
+document.addEventListener('DOMContentLoaded', () => {
+  new ChatApp();
 });
 
 document.getElementById('logout-button').addEventListener('click', async () => {
