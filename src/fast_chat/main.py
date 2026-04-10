@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
+from starlette.staticfiles import StaticFiles
 
 from config import settings
 from logger import get_logger
@@ -40,5 +41,11 @@ async def token_expired_exception_handler(request: Request, exc: HTTPException):
 async def token_no_found_exception_handler(request: Request, exc: HTTPException):
     return RedirectResponse(url="/login")
 
+
+app.mount(
+    "/static",
+    StaticFiles(directory="src/fast_chat/templates/static"),
+    name="static",
+)
 
 app.include_router(api_router)
