@@ -59,7 +59,7 @@ celery: ## Запустить Celery worker, beat и flower
 run-dev: docker-start celery ## Запустить сервер через uvicorn
 	$(UV) uvicorn $(APP) --reload --host 0.0.0.0 --port 8000
 
-run-dev-w-recreate: docker-restart celery ## Запустить сервер через uvicorn (с пересборкой всех сервисов)
+run-dev-w-recreate: docker-restart celery migrate-up ## Запустить сервер через uvicorn (с пересборкой всех сервисов)
 	$(UV) uvicorn $(APP) --reload --host 0.0.0.0 --port 8000
 
 run: docker-start celery  ## Запустить сервер через gunicorn (prod)
