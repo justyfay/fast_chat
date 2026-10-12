@@ -15,3 +15,4 @@ RUN uv sync --frozen --no-dev
 RUN chmod a+x /fast_chat/scripts/*.sh
 
 ENV PATH="/fast_chat/.venv/bin:$PATH"
+ENV UV_NO_DEV=1

@@ -1,7 +1,7 @@
 from typing import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.fast_chat.database import sessionmanager
-from src.fast_chat.exceptions import FailedDbSession
+from fast_chat.database import sessionmanager
+from fast_chat.exceptions import FailedDbSession
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

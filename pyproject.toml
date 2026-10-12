@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.10.9,<0.11.0"]
+requires = ["uv_build>=0.10.9,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
@@ -35,5 +35,34 @@ dependencies = [
     "celery>=5.4.0,<6",
     "gunicorn>=23.0.0,<24",
     "flower>=2.0.1,<3",
-    "ruff>=0.8.3,<0.9",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.3,<0.9",
+    "pytest==8.3.2",
+    "pytest-asyncio==0.23.6",
+    "async-asgi-testclient==1.4.11",
+    "pytest-mock==3.14.0",
+    "pytest-httpx>=0.32.0,<0.33",
+    "pytest-env>=1.1.3,<2",
+    "pytest-cov>=5.0.0,<6",
+    "faker>=40.43.0,<41",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+filterwarnings = "ignore::DeprecationWarning"
+
+[tool.pytest_env]
+DB_NAME = "fast_chat_test"
+DB_HOST = { value = "localhost", skip_if_set = true }
+DB_PORT = { value = "5432", skip_if_set = true }
+REDIS_HOST = { value = "localhost", skip_if_set = true }
+REDIS_PORT = { value = "6379", skip_if_set = true }
+SECRET_KEY = "test-secret-key-not-for-production"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+BOT_TOKEN = "123456:TEST-TOKEN"
+ORIGINS = '["http://testserver"]'
+LOG_LEVEL = "WARNING"

@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import ReturningInsert
 
-from src.fast_chat.database import Base
+from fast_chat.database import Base
 
 
 class BaseDAO:
@@ -22,7 +22,9 @@ class BaseDAO:
             )
             query_execute: Result[tuple | Any] = await session.execute(query)
             result: RowMapping | None = query_execute.mappings().one_or_none()
-            logger.debug(f"[{cls.model.__tablename__}] find_one_or_none: found={result is not None}")
+            logger.debug(
+                f"[{cls.model.__tablename__}] find_one_or_none: found={result is not None}"
+            )
             return result
 
     @classmethod
@@ -48,14 +50,20 @@ class BaseDAO:
             async with db_session as session:
                 query_execute: Result[tuple | Any] = await session.execute(query)
                 result: RowMapping | None = query_execute.mappings().first()
-                logger.debug(f"[{cls.model.__tablename__}] add: id={result['id'] if result else None}")
+                logger.debug(
+                    f"[{cls.model.__tablename__}] add: id={result['id'] if result else None}"
+                )
                 await session.commit()
                 return result
         except (SQLAlchemyError, Exception) as e:
             if isinstance(e, SQLAlchemyError):
-                msg = "Database Exc: Cannot insert data into table. Details: {}".format(e)
+                msg = "Database Exc: Cannot insert data into table. Details: {}".format(
+                    e
+                )
             elif isinstance(e, Exception):
-                msg = "Unknown Exc: Cannot insert data into table. Details: {}".format(e)
+                msg = "Unknown Exc: Cannot insert data into table. Details: {}".format(
+                    e
+                )
 
             logger.error(msg, extra={"table": cls.model.__tablename__}, exc_info=True)
             return None

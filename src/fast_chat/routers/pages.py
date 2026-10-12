@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
-from src.fast_chat.dependencies.auth import get_current_user
-from src.fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.auth import get_current_user
+from fast_chat.dependencies.database import get_session
 
 pages_router = APIRouter(prefix="", tags=["Страницы"])
 templates = Jinja2Templates(directory="src/fast_chat/templates")

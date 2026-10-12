@@ -3,11 +3,11 @@ from typing import Sequence
 from sqlalchemy import select, delete, Result
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from logger import get_logger
-from src.fast_chat.dao.base import BaseDAO
-from src.fast_chat.database import Base
-from src.fast_chat.models.conversation import Conversation
-from src.fast_chat.models.user import User
+from fast_chat.logger import get_logger
+from fast_chat.dao.base import BaseDAO
+from fast_chat.database import Base
+from fast_chat.models.conversation import Conversation
+from fast_chat.models.user import User
 
 logger = get_logger()
 
@@ -27,7 +27,9 @@ class ConversationDAO(BaseDAO):
             )
             result: Result = await session.execute(query)
             rows = result.mappings().all()
-            logger.debug(f"[conversation] get_partners: user_id={user_id}, count={len(rows)}")
+            logger.debug(
+                f"[conversation] get_partners: user_id={user_id}, count={len(rows)}"
+            )
             return rows
 
     @classmethod
@@ -79,10 +81,14 @@ class ConversationDAO(BaseDAO):
             return deleted
 
     @classmethod
-    async def get_available_users(cls, db_session: AsyncSession, user_id: int) -> Sequence:
+    async def get_available_users(
+        cls, db_session: AsyncSession, user_id: int
+    ) -> Sequence:
         """Возвращает пользователей, с которыми у текущем пользователем ещё нет чата."""
         async with db_session as session:
-            current_recipients = select(Conversation.recipient_id).where(Conversation.user_id == user_id)
+            current_recipients = select(Conversation.recipient_id).where(
+                Conversation.user_id == user_id
+            )
             query = (
                 select(User.__table__.columns)
                 .where(User.id != user_id)

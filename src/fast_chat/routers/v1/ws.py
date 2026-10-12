@@ -6,14 +6,14 @@ from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
-from src.fast_chat.dao.user import UserDAO
-from src.fast_chat.dao.message import MessageDAO
+from fast_chat.dao.user import UserDAO
+from fast_chat.dao.message import MessageDAO
 
-from logger import get_logger
-from src.fast_chat.dependencies.database import get_session
-from src.fast_chat.schemas.message import MessageRead
-from src.fast_chat.tasks.tasks import send_notification_to_telegram
-from src.fast_chat.utils.crypto import encrypt, decrypt
+from fast_chat.logger import get_logger
+from fast_chat.dependencies.database import get_session
+from fast_chat.schemas.message import MessageRead
+from fast_chat.tasks.tasks import send_notification_to_telegram
+from fast_chat.utils.crypto import encrypt, decrypt
 
 logger = get_logger()
 ws_router = APIRouter(prefix="/ws", tags=["Сокеты"])
@@ -44,7 +44,9 @@ async def websocket_endpoint(
                 validated_msg = MessageRead.model_validate(
                     {**dict(appended_msg), "body": decrypt(appended_msg["body"])}
                 )
-                logger.debug(f"Получено сообщение от: '{data['sender_id']}', id={append_msg['id']}.")
+                logger.debug(
+                    f"Получено сообщение от: '{data['sender_id']}', id={append_msg['id']}."
+                )
 
             except Exception as e:
                 logger.debug(f"Ошибка во время сохранения сообщения в БД: '{e}'.")

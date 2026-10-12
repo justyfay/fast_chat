@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from config import settings
-from logger import get_logger
+from fast_chat.config import settings
+from fast_chat.logger import get_logger
 
 logger = get_logger()
 
