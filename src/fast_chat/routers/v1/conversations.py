@@ -6,12 +6,14 @@ from fast_chat.dao.conversation import ConversationDAO
 from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.auth import get_current_user
 from fast_chat.dependencies.database import get_session
+from fast_chat.schemas.user import UserSchema
 
 conv_router = APIRouter(prefix="/conversations", tags=["Беседы"])
 
 
 @conv_router.get(
     "/",
+    response_model=list[UserSchema],
     description="Список собеседников, добавленных текущим пользователем в беседы.",
 )
 async def get_conversations(
@@ -72,6 +74,7 @@ async def delete_conversation(
 
 @conv_router.get(
     "/search",
+    response_model=list[UserSchema],
     description="Список пользователей, доступных для добавления в беседы (без уже добавленных).",
 )
 async def search_available_users(

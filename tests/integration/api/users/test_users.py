@@ -1,4 +1,3 @@
-import pytest
 from async_asgi_testclient import TestClient
 from fastapi import status
 
@@ -62,10 +61,6 @@ async def test_all_users_contains_every_registered_user(
     assert {user["id"] for user in resp.json()} == {user_one.id, user_two.id}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TO-DO: Поправить после того, как из ответа уберут hashed_password",
-)
 async def test_current_user_does_not_expose_hashed_password(
     main_client: TestClient, user_one: UserData
 ) -> None:
@@ -77,10 +72,6 @@ async def test_current_user_does_not_expose_hashed_password(
     assert "hashed_password" not in resp.json()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TO-DO: Поправить после того, как из ответа уберут hashed_password",
-)
 async def test_all_users_does_not_expose_hashed_password(
     main_client: TestClient, user_one: UserData
 ) -> None:
