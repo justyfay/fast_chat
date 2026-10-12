@@ -146,6 +146,33 @@ async def test_search_filters_by_name_case_insensitive(
     assert [user["id"] for user in resp.json()] == [user_two.id]
 
 
+async def test_conversations_list_does_not_expose_hashed_password(
+    main_client: TestClient, user_one: UserData, user_two: UserData
+) -> None:
+    """Список бесед не содержит хеш пароля собеседников"""
+    # Arrange
+    await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
+
+    # Act
+    resp = await main_client.get(RoutersTestData.CONVERSATIONS_URL)
+
+    # Assert
+    assert resp.json()
+    assert all("hashed_password" not in user for user in resp.json())
+
+
+async def test_search_does_not_expose_hashed_password(
+    main_client: TestClient, user_one: UserData, user_two: UserData
+) -> None:
+    """Результаты поиска бесед не содержат хеш пароля пользователей"""
+    # Act
+    resp = await main_client.get(RoutersTestData.CONVERSATIONS_SEARCH_URL)
+
+    # Assert
+    assert resp.json()
+    assert all("hashed_password" not in user for user in resp.json())
+
+
 async def test_conversations_without_cookie_redirects_to_login(
     main_client: TestClient,
 ) -> None:
