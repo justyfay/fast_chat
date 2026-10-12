@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.fast_chat.dao.conversation import ConversationDAO
-from src.fast_chat.dao.user import UserDAO
-from src.fast_chat.dependencies.auth import get_current_user
-from src.fast_chat.dependencies.database import get_session
+from fast_chat.dao.conversation import ConversationDAO
+from fast_chat.dao.user import UserDAO
+from fast_chat.dependencies.auth import get_current_user
+from fast_chat.dependencies.database import get_session
 
 conv_router = APIRouter(prefix="/conversations", tags=["Беседы"])
 
@@ -18,7 +18,9 @@ async def get_conversations(
     current_user: RowMapping = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    return await ConversationDAO.get_partners(db_session=session, user_id=current_user.id)
+    return await ConversationDAO.get_partners(
+        db_session=session, user_id=current_user.id
+    )
 
 
 @conv_router.post(
@@ -32,11 +34,15 @@ async def add_conversation(
     session: AsyncSession = Depends(get_session),
 ):
     if recipient_id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot add yourself")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot add yourself"
+        )
 
     recipient = await UserDAO.find_one_or_none(db_session=session, id=recipient_id)
     if not recipient:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     added = await ConversationDAO.add_conversation(
         db_session=session, user_id=current_user.id, recipient_id=recipient_id
@@ -58,7 +64,9 @@ async def delete_conversation(
         db_session=session, user_id=current_user.id, recipient_id=recipient_id
     )
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+        )
     return {"deleted": True, "recipient_id": recipient_id}
 
 

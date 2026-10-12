@@ -1,14 +1,14 @@
 .PHONY: help \
-        install lint format \
+        install lint format test \
         migrate-up migrate-down migrate-create \
-        run \
-        docker-up docker-down docker-build docker-logs \
-        celery celery-beat flower \
+        docker-pull docker-build docker-stop docker-down docker-start docker-restart \
+        db-up celery-worker celery-beat flower \
+        run-dev run-dev-w-recreate run \
         clean
 
 UV := uv run
-APP := src.fast_chat.main:app
-CELERY_APP := src.fast_chat.tasks.celery_app:celery
+APP := fast_chat.main:app
+CELERY_APP := fast_chat.tasks.celery_app:celery
 
 help: ## Справка
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -23,6 +23,9 @@ lint: ## Проверить код через ruff
 format: ## Отформатировать код через ruff
 	$(UV) ruff format .
 	$(UV) ruff check --fix .
+
+test: ## Запустить тесты (нужны Postgres и Redis; используется отдельная БД *_test)
+	$(UV) pytest -v tests/ --cov=src --cov-report term-missing
 
 migrate-up: ## Применить все миграции
 	$(UV) alembic upgrade head
@@ -39,7 +42,7 @@ docker-pull: ## Скачать сторонние Docker-образы (без с
 docker-build: ## Собрать локальные Docker-образы
 	docker compose build
 
-docker-stop: ## Остановить все сервисы (без удаления контейнеров)
+docker-stop: ## Остановить все сервисы
 	docker compose stop
 
 docker-down: ## Остановить и удалить контейнеры
@@ -51,19 +54,29 @@ docker-start: docker-stop docker-pull docker-build  ## Поднять все с�
 docker-restart: docker-down docker-pull docker-build ## Пересобрать и перезапустить все сервисы
 	docker compose up -d
 
-celery: ## Запустить Celery worker, beat и flower
+db-up: ## Поднять только Postgres и Redis
+	docker compose up -d --wait postgres redis
+
+celery-worker: ## Запустить Celery worker локально
+	-docker compose stop celery
 	$(UV) celery --app=$(CELERY_APP) worker -l INFO
+
+celery-beat: ## Запустить Celery beat локально
+	-docker compose stop celery_beat
 	$(UV) celery --app=$(CELERY_APP) beat -l DEBUG
+
+flower: ## Запустить Flower локально
+	-docker compose stop flower
 	$(UV) celery --app=$(CELERY_APP) flower
 
-run-dev: docker-start celery ## Запустить сервер через uvicorn
+run-dev: db-up migrate-up ## Запуск приложения локально
+	-docker compose stop fast_chat
 	$(UV) uvicorn $(APP) --reload --host 0.0.0.0 --port 8000
 
-run-dev-w-recreate: docker-restart celery migrate-up ## Запустить сервер через uvicorn (с пересборкой всех сервисов)
+run-dev-w-recreate: docker-down docker-pull db-up migrate-up ## Запуск приложения локально, с пересозданием контейнеров Postgres и Redis
 	$(UV) uvicorn $(APP) --reload --host 0.0.0.0 --port 8000
 
-run: docker-start celery  ## Запустить сервер через gunicorn (prod)
-	$(UV) gunicorn $(APP) --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+run: docker-start ## Запустить приложение в Docker (Gunicorn, Celery, Postgres, Redis)
 
 
 clean: ## Удалить кэш Python и ruff

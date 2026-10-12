@@ -4,7 +4,7 @@ from loguru import logger
 from loguru._defaults import LOGURU_FORMAT  # noqa
 from loguru._logger import Logger  # noqa
 
-from config import settings
+from fast_chat.config import settings
 
 
 def get_logger() -> Logger:

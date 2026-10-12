@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.fast_chat.database import Base
+from fast_chat.database import Base
 
 
 class User(Base):

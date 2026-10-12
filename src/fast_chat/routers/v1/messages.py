@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.fast_chat.dao.message import MessageDAO
-from src.fast_chat.dependencies.auth import get_current_user
-from src.fast_chat.dependencies.database import get_session
-from src.fast_chat.schemas.message import MessageCreate, MessageRead
-from src.fast_chat.utils.crypto import encrypt, decrypt
+from fast_chat.dao.message import MessageDAO
+from fast_chat.dependencies.auth import get_current_user
+from fast_chat.dependencies.database import get_session
+from fast_chat.schemas.message import MessageCreate, MessageRead
+from fast_chat.utils.crypto import encrypt, decrypt
 
 msg_router = APIRouter(prefix="/messages", tags=["Сообщения"])
 

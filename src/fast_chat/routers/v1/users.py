@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.fast_chat.dao.user import UserDAO
-from src.fast_chat.dependencies.auth import get_current_user
-from src.fast_chat.dependencies.database import get_session
+from fast_chat.dao.user import UserDAO
+from fast_chat.dependencies.auth import get_current_user
+from fast_chat.dependencies.database import get_session
 
 user_router = APIRouter(prefix="/users", tags=["Пользователи"])
 

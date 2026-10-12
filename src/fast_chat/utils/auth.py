@@ -4,7 +4,7 @@ from typing import Optional
 from jose import jwt
 from passlib.context import CryptContext
 
-from config import settings
+from fast_chat.config import settings
 
 password_context = CryptContext(
     schemes=["argon2"],

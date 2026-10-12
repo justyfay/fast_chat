@@ -3,10 +3,10 @@ from typing import Any, Sequence
 from sqlalchemy import select, or_, and_, Result, RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from logger import get_logger
-from src.fast_chat.dao.base import BaseDAO
-from src.fast_chat.database import Base
-from src.fast_chat.models.message import Message
+from fast_chat.logger import get_logger
+from fast_chat.dao.base import BaseDAO
+from fast_chat.database import Base
+from fast_chat.models.message import Message
 
 logger = get_logger()
 
@@ -47,5 +47,7 @@ class MessageDAO(BaseDAO):
             )  # noqa
             query_execute: Result[tuple | Any] = await session.execute(query)
             result: Sequence[RowMapping | Any] | None = query_execute.scalars().all()
-            logger.debug(f"[message] get_messages_between_users: count={len(result) if result else 0}")
+            logger.debug(
+                f"[message] get_messages_between_users: count={len(result) if result else 0}"
+            )
             return result

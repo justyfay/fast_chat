@@ -1,0 +1,133 @@
+from typing import AsyncIterator, Iterator
+
+import asyncpg
+import pytest
+import redis.asyncio as redis
+from async_asgi_testclient import TestClient
+from asyncpg import Connection
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
+
+from fast_chat.config import settings
+from fast_chat.dependencies.database import get_session
+from fast_chat.main import app
+from fast_chat.routers.v1.ws import active_connections
+from .dependencies import build_get_session
+from .utils.auth import UserData, register_and_login
+from .utils.lock import release_test_db_lock, try_acquire_test_db_lock
+from .utils.migrate import (
+    assert_test_database,
+    clear_pg_database,
+    create_pg_database,
+    upgrade_pg_schema,
+)
+
+TEST_REDIS_DB = 15
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """Не даёт запустить два прогона с БД одновременно: оба чистят одни и те же таблицы.
+
+    Проверка включается, только если среди собранных тестов есть те, что используют БД,
+    поэтому отдельный запуск unit-тестов не блокируется.
+    """
+    if session.config.option.collectonly:
+        return
+    if not any("database_ready" in item.fixturenames for item in session.items):
+        return
+    if not try_acquire_test_db_lock():
+        pytest.exit(
+            f"Тесты уже запущены в другом процессе и используют БД '{settings.db_name}'. "
+            "Дождитесь завершения существующего прогона и запустите тесты снова.",
+            returncode=1,
+        )
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    release_test_db_lock()
+
+
+@pytest.fixture(scope="session")
+def database_ready() -> None:
+    """Создаёт тестовую БД (если нет) и применяет миграции. Работает только на `*_test`."""
+    assert_test_database(settings.db_name)
+    create_pg_database(settings.db_name)
+    upgrade_pg_schema()
+
+
+@pytest.fixture(scope="function")
+async def pg_conn(database_ready: None) -> AsyncIterator[Connection]:
+    """Прямое подключение к тестовой БД: чистит данные до и после каждого теста."""
+    conn = await asyncpg.connect(
+        host=settings.db_host,
+        port=settings.db_port,
+        user=settings.db_user,
+        password=settings.db_pass,
+        database=settings.db_name,
+    )
+    await clear_pg_database(conn)
+    try:
+        yield conn
+    finally:
+        await clear_pg_database(conn)
+        await conn.close()
+
+
+@pytest.fixture(scope="function")
+async def engine(pg_conn: Connection) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture(scope="function")
+async def db_session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    async with AsyncSession(engine, autoflush=False) as session:
+        yield session
+
+
+@pytest.fixture(scope="function")
+async def redis_connection() -> AsyncIterator[Redis]:
+    """Redis на отдельной БД (не 0), чтобы не затронуть очередь Celery dev-окружения."""
+    redis_client = redis.from_url(f"{settings.redis_url}/{TEST_REDIS_DB}")
+    await redis_client.flushdb()
+    yield redis_client
+    await redis_client.flushdb()
+    await redis_client.aclose()
+
+
+@pytest.fixture(scope="function")
+def db_override(engine: AsyncEngine) -> Iterator[None]:
+    app.dependency_overrides[get_session] = build_get_session(engine)
+    active_connections.clear()
+    yield
+    active_connections.clear()
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+async def main_client(db_override: None) -> AsyncIterator[TestClient]:
+    async with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture(scope="function")
+async def other_client(db_override: None) -> AsyncIterator[TestClient]:
+    """Второй клиент со своим cookie_jar: второй пользователь в тестах с двумя участниками."""
+    async with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture(scope="function")
+async def user_one(main_client: TestClient) -> UserData:
+    return await register_and_login(
+        main_client, email="alisson@example.com", full_name="Alisson Becker"
+    )
+
+
+@pytest.fixture(scope="function")
+async def user_two(other_client: TestClient) -> UserData:
+    return await register_and_login(
+        other_client, email="courtois@example.com", full_name="Thibaut Courtois"
+    )

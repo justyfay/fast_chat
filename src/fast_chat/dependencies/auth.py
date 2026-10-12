@@ -6,10 +6,10 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from config import settings
-from src.fast_chat.dao.user import UserDAO
-from src.fast_chat.dependencies.database import get_session
-from src.fast_chat.exceptions import (
+from fast_chat.config import settings
+from fast_chat.dao.user import UserDAO
+from fast_chat.dependencies.database import get_session
+from fast_chat.exceptions import (
     TokenNoFoundException,
     TokenExpiredException,
     NoFoundUserException,

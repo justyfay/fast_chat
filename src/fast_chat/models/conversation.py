@@ -1,7 +1,7 @@
 from sqlalchemy import Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.fast_chat.database import Base
+from fast_chat.database import Base
 
 
 class Conversation(Base):
@@ -14,7 +14,9 @@ class Conversation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
-    recipient_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
+    recipient_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=False
+    )
 
     def __str__(self) -> str:
         return f"Conversation(user_id={self.user_id}, recipient_id={self.recipient_id})"

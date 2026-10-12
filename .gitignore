@@ -8,3 +8,5 @@ __pycache__/
 **/celerybeat-schedule
 /.docker/
 poetry.lock
+.coverage
+htmlcov/

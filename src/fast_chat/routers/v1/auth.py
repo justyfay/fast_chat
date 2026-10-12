@@ -5,21 +5,21 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import settings
-from src.fast_chat.dao.user import UserDAO
-from src.fast_chat.dependencies.auth import get_session
-from src.fast_chat.exceptions import (
+from fast_chat.config import settings
+from fast_chat.dao.user import UserDAO
+from fast_chat.dependencies.auth import get_session
+from fast_chat.exceptions import (
     UserAlreadyExists,
     UserPasswordsNotEqual,
     UserIncorrectCredentials,
 )
-from src.fast_chat.schemas.user import (
+from fast_chat.schemas.user import (
     UserRegisterSchema,
     UserSchema,
     UserLoginResponseSchema,
 )
 
-from src.fast_chat.utils.auth import (
+from fast_chat.utils.auth import (
     verify_password,
     create_access_token,
     get_hashed_password,

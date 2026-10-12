@@ -3,10 +3,10 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
-from config import settings
-from logger import get_logger
-from src.fast_chat.exceptions import TokenNoFoundException, TokenExpiredException
-from src.fast_chat.routers import api_router
+from fast_chat.config import settings
+from fast_chat.logger import get_logger
+from fast_chat.exceptions import TokenNoFoundException, TokenExpiredException
+from fast_chat.routers import api_router
 
 logger = get_logger()
 
