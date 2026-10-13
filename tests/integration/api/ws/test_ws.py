@@ -4,6 +4,8 @@ from asyncpg import Connection
 from faker import Faker
 from pytest_mock import MockerFixture
 
+from fast_chat.routers.v1.ws import active_connections
+
 from ....constants import RoutersTestData
 from ....utils.auth import UserData, register_payload
 from ....utils.ws import receive_json
@@ -159,10 +161,6 @@ async def test_offline_recipient_without_telegram_code_gets_no_notification(
     telegram_task.delay.assert_not_called()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TO-DO: Поправить после добавления проверки cookie при подключении к WebSocket",
-)
 async def test_connection_without_cookie_is_rejected(
     main_client: TestClient, user_one: UserData
 ) -> None:
@@ -176,6 +174,37 @@ async def test_connection_without_cookie_is_rejected(
             RoutersTestData.WS_URL.format(user_id=user_one.id)
         ):
             pass
+
+
+async def test_connection_with_invalid_token_is_rejected(
+    main_client: TestClient, user_one: UserData
+) -> None:
+    """Подключение к WebSocket с невалидным токеном в cookie отклоняется"""
+    # Arrange
+    client = TestClient(main_client.application)
+
+    # Act / Assert
+    with pytest.raises(AssertionError):
+        async with client.websocket_connect(
+            RoutersTestData.WS_URL.format(user_id=user_one.id),
+            cookies={"access_token": "not_a_jwt"},
+        ):
+            pass
+
+
+async def test_connection_to_foreign_user_id_is_rejected(
+    main_client: TestClient, user_one: UserData, user_two: UserData
+) -> None:
+    """Пользователь не может подключиться к WebSocket под чужим user_id"""
+    # Act
+    with pytest.raises(AssertionError):
+        async with main_client.websocket_connect(
+            RoutersTestData.WS_URL.format(user_id=user_two.id)
+        ):
+            pass
+
+    # Assert
+    assert user_two.id not in active_connections
 
 
 @pytest.mark.xfail(
