@@ -1,13 +1,14 @@
 from collections import defaultdict
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, WebSocket, WebSocketException, Depends, status
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
 from fast_chat.dao.user import UserDAO
 from fast_chat.dao.message import MessageDAO
+from fast_chat.dependencies.auth import get_ws_user
 
 from fast_chat.logger import get_logger
 from fast_chat.dependencies.database import get_session
@@ -22,8 +23,14 @@ active_connections: dict[int, Any] = defaultdict(int)
 
 @ws_router.websocket("/{user_id}")
 async def websocket_endpoint(
-    websocket: WebSocket, user_id: int, session: AsyncSession = Depends(get_session)
+    websocket: WebSocket,
+    user_id: int,
+    current_user: RowMapping = Depends(get_ws_user),
+    session: AsyncSession = Depends(get_session),
 ):
+    if user_id != current_user.id:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+
     await websocket.accept()
     active_connections[user_id] = websocket
     logger.debug(f"Активные подключения: {list(active_connections.keys())}")

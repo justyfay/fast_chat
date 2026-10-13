@@ -1,6 +1,6 @@
 from datetime import timezone, datetime
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def get_token(request: Request):
+    """
+    Метод извлекает JWT из cookie `access_token`.
+
+    Если cookie нет, выдвет исключение.
+    """
     token = request.cookies.get("access_token")
     if not token:
         raise TokenNoFoundException
@@ -28,6 +33,11 @@ def get_token(request: Request):
 async def get_current_user(
     token: str = Depends(get_token), session: AsyncSession = Depends(get_session)
 ):
+    """
+    Метод определяет текущего пользователя по JWT из cookie для HTTP-запросов.
+
+    Возвращает строку с пользователем из БД (все колонки).
+    """
     try:
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
@@ -60,4 +70,30 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
+    return user
+
+
+async def get_ws_user(
+    websocket: WebSocket, session: AsyncSession = Depends(get_session)
+):
+    """
+    Метод определяет пользователя по cookie при подключении к WebSocket.
+    """
+    token = websocket.cookies.get("access_token")
+    if not token:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+    except JWTError:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+
+    username: str | None = payload.get("sub")
+    if not username:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+
+    user = await UserDAO.find_one_or_none(db_session=session, username=username)
+    if not user:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
     return user
