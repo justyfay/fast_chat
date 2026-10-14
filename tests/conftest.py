@@ -120,6 +120,13 @@ async def other_client(db_override: None) -> AsyncIterator[TestClient]:
 
 
 @pytest.fixture(scope="function")
+async def real_db_client(pg_conn: Connection) -> AsyncIterator[TestClient]:
+    """Клиент на настоящего приложения с lifespan и общим пулом."""
+    async with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture(scope="function")
 async def user_one(main_client: TestClient) -> UserData:
     return await register_and_login(
         main_client, email="alisson@example.com", full_name="Alisson Becker"
