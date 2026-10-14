@@ -32,6 +32,7 @@ async def websocket_endpoint(
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
     await websocket.accept()
+    sender_id = current_user.id
     active_connections[user_id] = websocket
     logger.debug(f"Активные подключения: {list(active_connections.keys())}")
 
@@ -41,7 +42,7 @@ async def websocket_endpoint(
             try:
                 append_msg: RowMapping = await MessageDAO.add(
                     db_session=session,
-                    sender_id=int(data["sender_id"]),
+                    sender_id=sender_id,
                     body=encrypt(data["body"]),
                     recipient_id=int(data["recipient_id"]),
                 )
@@ -52,7 +53,7 @@ async def websocket_endpoint(
                     {**dict(appended_msg), "body": decrypt(appended_msg["body"])}
                 )
                 logger.debug(
-                    f"Получено сообщение от: '{data['sender_id']}', id={append_msg['id']}."
+                    f"Получено сообщение от: '{sender_id}', id={append_msg['id']}."
                 )
 
             except Exception as e:
@@ -76,9 +77,6 @@ async def websocket_endpoint(
                 recipient_user: RowMapping = await UserDAO.find_one_or_none(
                     db_session=session, id=int(data["recipient_id"])
                 )
-                sender_user: RowMapping = await UserDAO.find_one_or_none(
-                    db_session=session, id=int(data["sender_id"])
-                )
 
                 if recipient_user.telegram_unic_code is not None:
                     logger.debug(
@@ -87,20 +85,18 @@ async def websocket_endpoint(
                     send_notification_to_telegram.delay(
                         chat_id=recipient_user.telegram_unic_code,
                         message=validated_msg.body,
-                        sender_name=sender_user.full_name,
+                        sender_name=current_user.full_name,
                     )
 
-            if int(data["sender_id"]) in active_connections:
-                websocket_recipient: WebSocket = active_connections[
-                    int(data["sender_id"])
-                ]
+            if sender_id in active_connections:
+                websocket_recipient: WebSocket = active_connections[sender_id]
                 logger.debug(
-                    f"Веб-сокет отправителя: '{data['sender_id']}' найден: '{websocket}'."
+                    f"Веб-сокет отправителя: '{sender_id}' найден: '{websocket}'."
                 )
 
                 await websocket_recipient.send_json(validated_msg.model_dump())
                 logger.debug(
-                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{data['sender_id']}'",
+                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{sender_id}'",
                 )
 
     except WebSocketDisconnect:

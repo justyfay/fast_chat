@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from async_asgi_testclient import TestClient
 from asyncpg import Connection
@@ -207,10 +209,6 @@ async def test_connection_to_foreign_user_id_is_rejected(
     assert user_two.id not in active_connections
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TO-DO: Поправить после того, как отправитель начнёт определяться по токену",
-)
 async def test_sender_id_from_payload_is_ignored(
     main_client: TestClient,
     other_client: TestClient,
@@ -234,3 +232,80 @@ async def test_sender_id_from_payload_is_ignored(
 
     # Assert
     assert message["sender_id"] == user_one.id
+
+
+async def test_spoofed_sender_id_is_not_saved_in_db(
+    main_client: TestClient,
+    pg_conn: Connection,
+    user_one: UserData,
+    user_two: UserData,
+    telegram_task,
+    faker: Faker,
+) -> None:
+    """Сообщение с подставным sender_id сохраняется в БД от имени настоящего отправителя"""
+    # Arrange
+    body = faker.sentence()
+    async with main_client.websocket_connect(
+        RoutersTestData.WS_URL.format(user_id=user_one.id)
+    ) as user_one_ws:
+        # Act
+        await user_one_ws.send_json(
+            {"sender_id": user_two.id, "recipient_id": user_two.id, "body": body}
+        )
+        await receive_json(user_one_ws)
+
+    # Assert
+    row = await pg_conn.fetchrow("SELECT sender_id, recipient_id FROM message")
+    assert (row["sender_id"], row["recipient_id"]) == (user_one.id, user_two.id)
+
+
+async def test_message_without_sender_id_is_accepted(
+    main_client: TestClient,
+    user_one: UserData,
+    user_two: UserData,
+    telegram_task,
+    faker: Faker,
+) -> None:
+    """Сообщение без поля sender_id принимается, отправитель определяется по токену"""
+    # Arrange
+    body = faker.sentence()
+    async with main_client.websocket_connect(
+        RoutersTestData.WS_URL.format(user_id=user_one.id)
+    ) as user_one_ws:
+        # Act
+        await user_one_ws.send_json({"recipient_id": user_two.id, "body": body})
+        message = await receive_json(user_one_ws)
+
+    # Assert
+    assert message["sender_id"] == user_one.id
+    assert message["body"] == body
+
+
+async def test_impersonated_user_does_not_receive_spoofed_message(
+    main_client: TestClient,
+    other_client: TestClient,
+    user_one: UserData,
+    user_two: UserData,
+    telegram_task,
+    faker: Faker,
+) -> None:
+    """Пользователь, чьё имя подставили в sender_id, не получает чужое сообщение"""
+    # Arrange
+    body = faker.sentence()
+    async with (
+        main_client.websocket_connect(
+            RoutersTestData.WS_URL.format(user_id=user_one.id)
+        ) as user_one_ws,
+        other_client.websocket_connect(
+            RoutersTestData.WS_URL.format(user_id=user_two.id)
+        ) as user_two_ws,
+    ):
+        # Act
+        await user_one_ws.send_json(
+            {"sender_id": user_two.id, "recipient_id": user_one.id, "body": body}
+        )
+        await receive_json(user_one_ws)
+
+        # Assert
+        with pytest.raises(asyncio.TimeoutError):
+            await receive_json(user_two_ws, timeout=0.5)
