@@ -271,10 +271,9 @@ class ChatApp {
   async sendMessage() {
     const messageInput = document.getElementById('chat-textarea');
     const message = messageInput.value.trim();
-    const currentUser = document.getElementById('my_account').getAttribute('data-user-id');
 
     if (message && selectedUserId) {
-      const payload = { recipient_id: selectedUserId, body: message, sender_id: currentUser };
+      const payload = { recipient_id: selectedUserId, body: message };
       try {
         socket.send(JSON.stringify(payload));
         messageInput.value = '';
