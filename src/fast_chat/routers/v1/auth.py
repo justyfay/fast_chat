@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fast_chat.config import settings
 from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.auth import get_session
+from fast_chat.dependencies.rate_limit import login_rate_limit, register_rate_limit
 from fast_chat.exceptions import (
     UserAlreadyExists,
     UserPasswordsNotEqual,
@@ -28,7 +29,7 @@ from fast_chat.utils.auth import (
 auth_router = APIRouter(prefix="/auth", tags=["Авторизация"])
 
 
-@auth_router.post("/register")
+@auth_router.post("/register", dependencies=[Depends(register_rate_limit)])
 async def register_user(
     user: UserRegisterSchema, session: AsyncSession = Depends(get_session)
 ):
@@ -63,7 +64,7 @@ async def register_user(
     )
 
 
-@auth_router.post("/login")
+@auth_router.post("/login", dependencies=[Depends(login_rate_limit)])
 async def login_user(
     response: Response,
     user: OAuth2PasswordRequestForm = Depends(),

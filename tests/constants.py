@@ -1,3 +1,6 @@
+from fast_chat.config import settings
+
+
 class RoutersTestData:
     """URL's эндпоинтов приложения."""
 
@@ -56,3 +59,17 @@ class ComposeTestData:
         "PGADMIN_DEFAULT_EMAIL",
         "PGADMIN_DEFAULT_PASSWORD",
     )
+
+
+class RateLimitTestData:
+    """Тестовые данные для проверки ограничения частоты запросов."""
+
+    LIMITER_NAME = "unit"
+    ATTEMPTS = 3
+    INTERVAL_SECONDS = 30
+    AUTH_ATTEMPTS = settings.rate_limit_auth_attempts
+    AUTH_INTERVAL_SECONDS = settings.rate_limit_auth_seconds
+    CLIENT_PORT = 50000
+    FIRST_IP = "10.0.0.1"
+    SECOND_IP = "10.0.0.2"
+    UNKNOWN_EMAIL = "nobody@example.com"

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     bot_token: str
 
+    rate_limit_auth_attempts: int = 5
+    rate_limit_auth_seconds: int = 60
+
     origins: list
     log_level: str
 
