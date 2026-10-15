@@ -19,6 +19,11 @@ logger = get_logger()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Метод создаёт пулы соединений с Postgres и Redis при старте и закрывает их при остановке."""
+    if not settings.password_policy_strict:
+        logger.warning(
+            "Политика 'Требоания к паролю' выключена: пароли не проверяются на длину и список распространённых. "
+            "Допустимо только для локальной разработки."
+        )
     sessionmanager.connect()
     redis_manager.connect()
     yield

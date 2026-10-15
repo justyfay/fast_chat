@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     bot_token: str
 
+    password_policy_strict: bool = False
+
     rate_limit_auth_attempts: int = 5
     rate_limit_auth_seconds: int = 60
 

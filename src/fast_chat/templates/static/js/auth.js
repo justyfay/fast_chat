@@ -17,6 +17,9 @@ function switchForm(form) {
 }
 
 function extractError(result, status) {
+    if (result && Array.isArray(result.detail)) {
+        return result.detail.map(item => String(item.msg ?? item).replace(/^Value error, /, '')).join('; ');
+    }
     if (result && result.detail) return result.detail;
     if (result && result.message) return result.message;
     return `Ошибка сервера (${status}). Попробуйте позже.`;

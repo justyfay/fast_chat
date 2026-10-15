@@ -3,17 +3,18 @@ from faker import Faker
 
 from fast_chat.utils.crypto import decrypt, encrypt
 
-TEXTS = [
-    pytest.param("secret message", id="ascii"),
-    pytest.param("Привет, мир!", id="cyrillic"),
-    pytest.param("😀 🔑", id="emoji"),
-    pytest.param("line1\nline2\ttab", id="whitespace"),
-    pytest.param("a" * 10_000, id="long"),
-    pytest.param("", id="empty"),
-]
 
-
-@pytest.mark.parametrize("text", TEXTS)
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("secret message", id="ascii"),
+        pytest.param("Привет, мир!", id="cyrillic"),
+        pytest.param("😀 🔑", id="emoji"),
+        pytest.param("line1\nline2\ttab", id="whitespace"),
+        pytest.param("a" * 10_000, id="long"),
+        pytest.param("", id="empty"),
+    ],
+)
 def test_encrypt_returns_different_text(text: str) -> None:
     """Зашифрованный текст отличается от исходного"""
     # Act
@@ -23,7 +24,17 @@ def test_encrypt_returns_different_text(text: str) -> None:
     assert token != text
 
 
-@pytest.mark.parametrize("text", TEXTS)
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("secret message", id="ascii"),
+        pytest.param("Привет, мир!", id="cyrillic"),
+        pytest.param("😀 🔑", id="emoji"),
+        pytest.param("line1\nline2\ttab", id="whitespace"),
+        pytest.param("a" * 10_000, id="long"),
+        pytest.param("", id="empty"),
+    ],
+)
 def test_decrypt_restores_original_text(text: str) -> None:
     """Расшифровка возвращает исходный текст"""
     # Arrange

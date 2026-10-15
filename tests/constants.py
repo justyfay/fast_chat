@@ -1,4 +1,5 @@
 from fast_chat.config import settings
+from fast_chat.constants import PolicyData
 
 
 class RoutersTestData:
@@ -84,3 +85,18 @@ class XssTestData:
         "/static/js/libs/marked.umd.js",
         "/static/js/libs/purify.js",
     )
+
+
+class PasswordTestData:
+    """Тестовые данные для проверки политики паролей."""
+
+    SHORT = "1" * (PolicyData.MIN_PASSWORD_LENGTH - 1)
+    TOO_SHORT_MESSAGE = PolicyData.PASSWORD_TOO_SHORT_MESSAGE.format(
+        min_length=PolicyData.MIN_PASSWORD_LENGTH
+    )
+    TOO_LONG_MESSAGE = PolicyData.PASSWORD_TOO_LONG_MESSAGE.format(
+        max_length=PolicyData.MAX_PASSWORD_LENGTH
+    )
+    COMMON = "Password1!"
+    CYRILLIC_PASSPHRASE = "длинная парольная фраза"
+    ONE_CHAR = "a"
