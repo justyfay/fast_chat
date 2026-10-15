@@ -11,6 +11,8 @@ from sqlalchemy.pool import NullPool
 
 from fast_chat.config import settings
 from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.rate_limit import login_rate_limit, register_rate_limit
+from fast_chat.dependencies.redis import get_redis
 from fast_chat.main import app
 from fast_chat.routers.v1.ws import active_connections
 from .dependencies import build_get_session
@@ -97,9 +99,19 @@ async def redis_connection() -> AsyncIterator[Redis]:
     await redis_client.aclose()
 
 
+async def no_rate_limit() -> None:
+    """Заглушка лимитера для обычных тестов."""
+
+
+def disable_rate_limits() -> None:
+    app.dependency_overrides[login_rate_limit] = no_rate_limit
+    app.dependency_overrides[register_rate_limit] = no_rate_limit
+
+
 @pytest.fixture(scope="function")
 def db_override(engine: AsyncEngine) -> Iterator[None]:
     app.dependency_overrides[get_session] = build_get_session(engine)
+    disable_rate_limits()
     active_connections.clear()
     yield
     active_connections.clear()
@@ -122,8 +134,28 @@ async def other_client(db_override: None) -> AsyncIterator[TestClient]:
 @pytest.fixture(scope="function")
 async def real_db_client(pg_conn: Connection) -> AsyncIterator[TestClient]:
     """Клиент на настоящего приложения с lifespan и общим пулом."""
+    disable_rate_limits()
     async with TestClient(app) as test_client:
         yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def rate_limit_enabled(db_override: None, redis_connection: Redis) -> Iterator[None]:
+    """Включает настоящие лимитеры в тестовой БД Redis."""
+    app.dependency_overrides.pop(login_rate_limit)
+    app.dependency_overrides.pop(register_rate_limit)
+    app.dependency_overrides[get_redis] = lambda: redis_connection
+    yield
+
+
+@pytest.fixture(scope="function")
+async def redis_unavailable(rate_limit_enabled: None) -> AsyncIterator[None]:
+    """Подменяет Redis клиентом с невалидным URL."""
+    broken_redis = redis.from_url("redis://127.0.0.1:1")
+    app.dependency_overrides[get_redis] = lambda: broken_redis
+    yield
+    await broken_redis.aclose()
 
 
 @pytest.fixture(scope="function")

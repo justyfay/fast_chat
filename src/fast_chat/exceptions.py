@@ -33,6 +33,20 @@ class FailedDbSession(FastChatException):
     detail: str = "Не удалось получить объект сессии для работы с БД."
 
 
+class TooManyRequests(FastChatException):
+    status_code: int = status.HTTP_429_TOO_MANY_REQUESTS
+
+    def __init__(self, retry_after: int) -> None:
+        self.detail = f"Слишком много попыток. Повторите через {retry_after} с."
+        self.headers = {"Retry-After": str(retry_after)}
+        super().__init__()
+
+
+class ServiceUnavailable(FastChatException):
+    status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE
+    detail: str = "Сервис временно недоступен. Повторите позже."
+
+
 class TokenNoFoundException(FastChatException):
     status_code: int = status.HTTP_401_UNAUTHORIZED
     detail: str = "Отсутствует токен пользователя."

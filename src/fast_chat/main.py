@@ -8,6 +8,7 @@ from starlette.staticfiles import StaticFiles
 
 from fast_chat.config import settings
 from fast_chat.database import sessionmanager
+from fast_chat.redis_client import redis_manager
 from fast_chat.logger import get_logger
 from fast_chat.exceptions import TokenNoFoundException, TokenExpiredException
 from fast_chat.routers import api_router
@@ -17,9 +18,11 @@ logger = get_logger()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Метод создаёт пул соединений с БД при старте и закрывает его при остановке."""
+    """Метод создаёт пулы соединений с Postgres и Redis при старте и закрывает их при остановке."""
     sessionmanager.connect()
+    redis_manager.connect()
     yield
+    await redis_manager.close()
     await sessionmanager.close()
 
 
