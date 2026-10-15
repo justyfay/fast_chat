@@ -6,9 +6,11 @@ from starlette.templating import Jinja2Templates
 
 from fast_chat.dependencies.auth import get_current_user
 from fast_chat.dependencies.database import get_session
+from fast_chat.utils.static_version import get_static_version
 
 pages_router = APIRouter(prefix="", tags=["Страницы"])
 templates = Jinja2Templates(directory="src/fast_chat/templates")
+templates.env.globals["static_version"] = get_static_version
 
 
 @pages_router.get("/", response_class=HTMLResponse)

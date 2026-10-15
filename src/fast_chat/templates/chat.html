@@ -1,9 +1,10 @@
+{%- set v = static_version() -%}
 <html lang="ru"><head>
 <meta charset="UTF-8">
 <title>Fast Chat</title>
-<link rel="stylesheet" href="/static/css/chat.css">
-<script src="/static/js/libs/marked.umd.js"></script>
-<script src="/static/js/libs/purify.js"></script>
+<link rel="stylesheet" href="/static/css/chat.css?v={{ v }}">
+<script src="/static/js/libs/marked.umd.js?v={{ v }}"></script>
+<script src="/static/js/libs/purify.js?v={{ v }}"></script>
 </head>
 <body>
   <div class="sidebar">
@@ -135,7 +136,7 @@
     </div>
   </div>
 
-<script src="/static/js/common.js"></script>
-<script src="/static/js/emoji-data.js"></script>
-<script src="/static/js/chat.js"></script>
+<script src="/static/js/common.js?v={{ v }}"></script>
+<script src="/static/js/emoji-data.js?v={{ v }}"></script>
+<script src="/static/js/chat.js?v={{ v }}"></script>
 </body></html>
