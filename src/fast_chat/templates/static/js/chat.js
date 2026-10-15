@@ -3,6 +3,8 @@ const STORAGE_KEY_SELECTED_USER = 'selectedUserId';
 let selectedUserId = null;
 let socket = null;
 
+marked.use({ renderer: { html: ({ text }) => escapeHtml(text) } });
+
 
 
 const API = {
@@ -88,8 +90,8 @@ class ChatApp {
   _userItemHtml(user) {
     return `
       <div class="user-item" data-user-id="${user.id}">
-        <div class="user-avatar">${user.full_name[0].toUpperCase()}</div>
-        <span class="user-name">${user.full_name}</span>
+        <div class="user-avatar">${escapeHtml(user.full_name[0].toUpperCase())}</div>
+        <span class="user-name">${escapeHtml(user.full_name)}</span>
         <button class="remove-chat-btn" data-partner-id="${user.id}" title="Удалить чат">✕</button>
       </div>
     `;
@@ -194,8 +196,8 @@ class ChatApp {
     }
     container.innerHTML = users.map(user => `
       <div class="user-item" data-user-id="${user.id}">
-        <div class="user-avatar">${user.full_name[0].toUpperCase()}</div>
-        <span class="user-name">${user.full_name}</span>
+        <div class="user-avatar">${escapeHtml(user.full_name[0].toUpperCase())}</div>
+        <span class="user-name">${escapeHtml(user.full_name)}</span>
       </div>
     `).join('');
 
@@ -297,9 +299,9 @@ class ChatApp {
       avatarName = this.currentChat.full_name[0].toUpperCase();
     }
 
-    const safeHtml = marked.parse(message.content.body ?? '');
+    const safeHtml = DOMPurify.sanitize(marked.parse(message.content.body ?? ''));
     messageElement.innerHTML = `
-      <div class="user-avatar">${avatarName}</div>
+      <div class="user-avatar">${escapeHtml(avatarName)}</div>
       <div class="message-content">
         <div class="message-text">${safeHtml}</div>
       </div>
