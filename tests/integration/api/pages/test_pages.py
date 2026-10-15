@@ -1,8 +1,10 @@
+import html
+
 from async_asgi_testclient import TestClient
 from fastapi import status
 
-from ....constants import RoutersTestData
-from ....utils.auth import UserData
+from ....constants import RoutersTestData, XssTestData
+from ....utils.auth import UserData, register_and_login
 
 
 async def test_login_page_is_available_without_authorization(
@@ -39,3 +41,18 @@ async def test_chat_page_is_available_for_authorized_user(
     # Assert
     assert resp.status_code == status.HTTP_200_OK
     assert "text/html" in resp.headers["content-type"]
+
+
+async def test_chat_page_escapes_full_name(other_client: TestClient) -> None:
+    """Имя пользователя с HTML-разметкой выводится на странице чата экранированным"""
+    # Arrange
+    await register_and_login(
+        other_client, email=XssTestData.EMAIL, full_name=XssTestData.PAYLOAD
+    )
+
+    # Act
+    resp = await other_client.get(RoutersTestData.CHAT_PAGE_URL)
+
+    # Assert
+    assert XssTestData.PAYLOAD not in resp.text
+    assert html.escape(XssTestData.PAYLOAD) in resp.text

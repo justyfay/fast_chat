@@ -73,3 +73,14 @@ class RateLimitTestData:
     FIRST_IP = "10.0.0.1"
     SECOND_IP = "10.0.0.2"
     UNKNOWN_EMAIL = "nobody@example.com"
+
+
+class XssTestData:
+    """Тестовые данные для проверки защиты от XSS."""
+
+    PAYLOAD = "<img src=x onerror=alert(1)>"
+    EMAIL = "mallory@example.com"
+    LIBS_SCRIPTS = (
+        "/static/js/libs/marked.umd.js",
+        "/static/js/libs/purify.js",
+    )
