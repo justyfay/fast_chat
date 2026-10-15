@@ -67,7 +67,9 @@ celery-beat: ## Запустить Celery beat локально
 
 flower: ## Запустить Flower локально
 	-docker compose stop flower
-	$(UV) celery --app=$(CELERY_APP) flower
+	@auth=$$(grep '^FLOWER_BASIC_AUTH=' .env | cut -d= -f2-); \
+	test -n "$$auth" || { echo "Отсутствует FLOWER_BASIC_AUTH в .env"; exit 1; }; \
+	$(UV) celery --app=$(CELERY_APP) flower --address=127.0.0.1 --basic-auth="$$auth"
 
 run-dev: db-up migrate-up ## Запуск приложения локально
 	-docker compose stop fast_chat

@@ -30,3 +30,29 @@ class UsersTestData:
     """Общие тестовые данные пользователей."""
 
     DEFAULT_PASSWORD = "P@ssw0rd!"
+
+
+class ComposeTestData:
+    """Тестовые данные для проверки docker-compose.yml."""
+
+    # Тестовые секреты в `.env` временного каталога
+    ENV = {
+        "DB_USER": "test_user",
+        "DB_PASS": "test-db-pass",
+        "DB_NAME": "test_db",
+        "DB_PORT": "5432",
+        "REDIS_PASSWORD": "test-redis-pass",
+        "FLOWER_BASIC_AUTH": "test-user:test-flower-pass",
+        "PGADMIN_DEFAULT_EMAIL": "test@example.com",
+        "PGADMIN_DEFAULT_PASSWORD": "test-pgadmin-pass",
+    }
+    # Сервисы, порты которых должны быть доступны только с самого хоста
+    LOCAL_ONLY_SERVICES = ("postgres", "redis", "flower", "pgadmin")
+    # Обязательные переменные compose
+    REQUIRED_VARIABLES = (
+        "DB_PASS",
+        "REDIS_PASSWORD",
+        "FLOWER_BASIC_AUTH",
+        "PGADMIN_DEFAULT_EMAIL",
+        "PGADMIN_DEFAULT_PASSWORD",
+    )
