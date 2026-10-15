@@ -97,3 +97,19 @@ def test_access_token_contains_subject_and_expiration(faker: Faker) -> None:
     payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     assert payload["sub"] == subject
     assert "exp" in payload
+
+
+def test_access_token_has_unique_jti(faker: Faker) -> None:
+    """Выданные токены получают свой уникальный идентификатор jti."""
+    # Arrange
+    subject = faker.email()
+
+    # Act
+    first = create_access_token({"sub": subject})
+    second = create_access_token({"sub": subject})
+
+    # Assert
+    first_jti = jwt.get_unverified_claims(first)["jti"]
+    second_jti = jwt.get_unverified_claims(second)["jti"]
+    assert first_jti and second_jti
+    assert first_jti != second_jti

@@ -3,17 +3,22 @@ from datetime import timezone, datetime
 from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from fast_chat.config import settings
 from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.redis import get_redis
 from fast_chat.exceptions import (
+    ServiceUnavailable,
     TokenNoFoundException,
     TokenExpiredException,
+    TokenRevokedException,
     NoFoundUserException,
 )
+from fast_chat.utils.token_revocation import is_token_revoked
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -31,7 +36,9 @@ def get_token(request: Request):
 
 
 async def get_current_user(
-    token: str = Depends(get_token), session: AsyncSession = Depends(get_session)
+    token: str = Depends(get_token),
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
 ):
     """
     Метод определяет текущего пользователя по JWT из cookie для HTTP-запросов.
@@ -65,6 +72,10 @@ async def get_current_user(
     if not username:
         raise NoFoundUserException
 
+    jti: str | None = payload.get("jti")
+    if not jti or await is_token_revoked(redis, jti):
+        raise TokenRevokedException
+
     user = await UserDAO.find_one_or_none(db_session=session, username=username)
     if not user:
         raise HTTPException(
@@ -74,7 +85,9 @@ async def get_current_user(
 
 
 async def get_ws_user(
-    websocket: WebSocket, session: AsyncSession = Depends(get_session)
+    websocket: WebSocket,
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
 ):
     """
     Метод определяет пользователя по cookie при подключении к WebSocket.
@@ -91,6 +104,16 @@ async def get_ws_user(
 
     username: str | None = payload.get("sub")
     if not username:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+
+    jti: str | None = payload.get("jti")
+    if not jti:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+    try:
+        revoked = await is_token_revoked(redis, jti)
+    except ServiceUnavailable:
+        raise WebSocketException(code=status.WS_1013_TRY_AGAIN_LATER)
+    if revoked:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
     user = await UserDAO.find_one_or_none(db_session=session, username=username)

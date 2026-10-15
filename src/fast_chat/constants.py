@@ -9,3 +9,10 @@ class PolicyData:
     PASSWORD_TOO_LONG_MESSAGE = "Не длиннее {max_length} символов"
     PASSWORD_EMPTY_MESSAGE = "Пароль не может быть пустым"
     PASSWORD_COMMON_MESSAGE = "Слишком распространённый, выберите другой"
+
+
+class AuthData:
+    """Константы аутентификации."""
+
+    # Ключ в Redis для отозванного токена (по `jti`), живёт до истечения токена
+    REVOKED_TOKEN_KEY = "revoked_jti:{jti}"

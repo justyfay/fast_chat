@@ -109,8 +109,9 @@ def disable_rate_limits() -> None:
 
 
 @pytest.fixture(scope="function")
-def db_override(engine: AsyncEngine) -> Iterator[None]:
+def db_override(engine: AsyncEngine, redis_connection: Redis) -> Iterator[None]:
     app.dependency_overrides[get_session] = build_get_session(engine)
+    app.dependency_overrides[get_redis] = lambda: redis_connection
     disable_rate_limits()
     active_connections.clear()
     yield
@@ -141,11 +142,10 @@ async def real_db_client(pg_conn: Connection) -> AsyncIterator[TestClient]:
 
 
 @pytest.fixture(scope="function")
-def rate_limit_enabled(db_override: None, redis_connection: Redis) -> Iterator[None]:
+def rate_limit_enabled(db_override: None) -> Iterator[None]:
     """Включает настоящие лимитеры в тестовой БД Redis."""
     app.dependency_overrides.pop(login_rate_limit)
     app.dependency_overrides.pop(register_rate_limit)
-    app.dependency_overrides[get_redis] = lambda: redis_connection
     yield
 
 
