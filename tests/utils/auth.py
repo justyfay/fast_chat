@@ -42,11 +42,13 @@ async def register_user(client: TestClient, **kwargs) -> UserData:
     )
 
 
-async def login_user(client: TestClient, email: str, password: str) -> None:
+async def login_user(client: TestClient, email: str, password: str) -> str:
+    """Выполняет вход и возвращает выданный токен (он же сохраняется в cookie клиента)."""
     resp = await client.post(
         RoutersTestData.LOGIN_URL, form={"username": email, "password": password}
     )
     assert resp.status_code == status.HTTP_200_OK, resp.text
+    return resp.json()["access_token"]
 
 
 async def register_and_login(client: TestClient, **kwargs) -> UserData:

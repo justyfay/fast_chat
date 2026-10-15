@@ -100,3 +100,11 @@ class PasswordTestData:
     COMMON = "Password1!"
     CYRILLIC_PASSPHRASE = "длинная парольная фраза"
     ONE_CHAR = "a"
+
+
+class TokenTestData:
+    """Тестовые данные для проверки токенов."""
+
+    SUBJECT = "nobody@example.com"
+    GARBAGE_TOKEN = "not-a-jwt"
+    REVOKED_MESSAGE = "Токен отозван"

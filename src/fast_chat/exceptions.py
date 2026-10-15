@@ -62,6 +62,11 @@ class NoFoundUserException(FastChatException):
     detail: str = "Не найден пользователь."
 
 
+class TokenRevokedException(FastChatException):
+    status_code: int = status.HTTP_401_UNAUTHORIZED
+    detail: str = "Токен отозван или недействителен. Войдите заново."
+
+
 class TokenExpiredException(FastChatException):
     status_code: int = status.HTTP_401_UNAUTHORIZED
     detail: str = "Токен истек."

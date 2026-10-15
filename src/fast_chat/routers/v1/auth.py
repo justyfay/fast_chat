@@ -1,7 +1,9 @@
 from datetime import datetime, UTC, timedelta
 
-from fastapi import APIRouter, Response, Depends
+from fastapi import APIRouter, Request, Response, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from redis.asyncio import Redis
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +11,7 @@ from fast_chat.config import settings
 from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.auth import get_session
 from fast_chat.dependencies.rate_limit import login_rate_limit, register_rate_limit
+from fast_chat.dependencies.redis import get_redis
 from fast_chat.exceptions import (
     UserAlreadyExists,
     UserPasswordsNotEqual,
@@ -25,6 +28,7 @@ from fast_chat.utils.auth import (
     create_access_token,
     get_hashed_password,
 )
+from fast_chat.utils.token_revocation import revoke_token
 
 auth_router = APIRouter(prefix="/auth", tags=["Авторизация"])
 
@@ -94,6 +98,18 @@ async def login_user(
 
 
 @auth_router.post("/logout")
-async def logout_user(response: Response):
+async def logout_user(
+    request: Request, response: Response, redis: Redis = Depends(get_redis)
+):
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            payload = jwt.decode(
+                token, settings.secret_key, algorithms=[settings.algorithm]
+            )
+        except JWTError:
+            payload = {}
+        if payload.get("jti"):
+            await revoke_token(redis, payload["jti"], payload["exp"])
     response.delete_cookie(key="access_token")
     return {"message": "Пользователь успешно вышел из системы"}
