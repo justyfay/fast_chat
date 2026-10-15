@@ -1,8 +1,9 @@
+{%- set v = static_version() -%}
 <html lang="ru-RU"><head><base href="/">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login & Registration</title>
-<link rel="stylesheet" href="/static/css/auth.css">
+<link rel="stylesheet" href="/static/css/auth.css?v={{ v }}">
 </head>
 <body>
 
@@ -63,7 +64,7 @@
 
 <div id="toaster"></div>
 
-<script src="/static/js/common.js"></script>
-<script src="/static/js/auth.js"></script>
+<script src="/static/js/common.js?v={{ v }}"></script>
+<script src="/static/js/auth.js?v={{ v }}"></script>
 </body>
 </html>
