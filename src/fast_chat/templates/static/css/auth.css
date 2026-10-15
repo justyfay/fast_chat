@@ -161,3 +161,10 @@ body {
 @keyframes toast-out {
     to { opacity: 0; transform: translateY(12px); }
 }
+
+.field-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: #72767d;
+}

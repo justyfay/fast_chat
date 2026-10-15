@@ -1,10 +1,13 @@
 from async_asgi_testclient import TestClient
 from asyncpg import Connection
 from fastapi import status
+from pytest_mock import MockerFixture
 
+from fast_chat.config import settings
+from fast_chat.constants import PolicyData
 from fast_chat.utils.auth import verify_password
-from ....constants import RoutersTestData, UsersTestData
-from ....utils.auth import register_payload
+from ....constants import PasswordTestData, RoutersTestData, UsersTestData
+from ....utils.auth import login_user, register_payload
 
 
 async def test_register_success_creates_user(
@@ -102,3 +105,64 @@ async def test_validation_error_register_invalid_email(
 
     # Assert
     assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+async def test_error_register_with_short_password(
+    main_client: TestClient, pg_conn: Connection
+) -> None:
+    """Невозможно зарегестрировваться с паролем меньше 8 символов."""
+    # Arrange
+    payload = register_payload(password=PasswordTestData.SHORT)
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert PasswordTestData.TOO_SHORT_MESSAGE in resp.json()["detail"][0]["msg"]
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 0
+
+
+async def test_error_register_with_common_password(
+    main_client: TestClient, pg_conn: Connection
+) -> None:
+    """Невозможно зарегестрировваться с распространенным паролем."""
+    # Arrange
+    payload = register_payload(password=PasswordTestData.COMMON)
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert PolicyData.PASSWORD_COMMON_MESSAGE in resp.json()["detail"][0]["msg"]
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 0
+
+
+async def test_register_accepts_cyrillic_passphrase_with_spaces(
+    main_client: TestClient,
+) -> None:
+    """Возможно зарегестрировваться с паролем из кириллицы и пробелов."""
+    # Arrange
+    payload = register_payload(password=PasswordTestData.CYRILLIC_PASSPHRASE)
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_200_OK
+
+
+async def test_login_is_not_checked_against_password_policy(
+    main_client: TestClient, mocker: MockerFixture
+) -> None:
+    """Ранее созданный пользователь со 'слабым' паролем может авторизоваться."""
+    # Arrange
+    mocker.patch.object(settings, "password_policy_strict", False)
+    payload = register_payload(password=PasswordTestData.ONE_CHAR)
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+    assert resp.status_code == status.HTTP_200_OK
+    mocker.patch.object(settings, "password_policy_strict", True)
+
+    # Act / Assert
+    await login_user(main_client, payload["email"], PasswordTestData.ONE_CHAR)
