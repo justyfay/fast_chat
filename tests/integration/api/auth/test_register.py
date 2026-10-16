@@ -139,6 +139,22 @@ async def test_error_register_with_common_password(
     assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 0
 
 
+async def test_error_register_with_trivial_password(
+    main_client: TestClient, pg_conn: Connection
+) -> None:
+    """Ошибка при регистрации пользователя с тривиальным паролем."""
+    # Arrange
+    payload = register_payload(password=PasswordTestData.TRIVIAL)
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert PolicyData.PASSWORD_TRIVIAL_MESSAGE in resp.json()["detail"][0]["msg"]
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 0
+
+
 async def test_register_accepts_cyrillic_passphrase_with_spaces(
     main_client: TestClient,
 ) -> None:

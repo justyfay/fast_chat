@@ -3,6 +3,7 @@ import pytest
 from fast_chat.constants import PolicyData
 from fast_chat.utils.password_policy import (
     is_common_password,
+    is_trivial_password,
     load_common_passwords,
     password_base,
     validate_password,
@@ -18,10 +19,11 @@ from ...constants import PasswordTestData
         pytest.param("пароль-из-кириллицы", id="cyrillic"),
         pytest.param("correct horse battery staple", id="spaces"),
         pytest.param(
-            "😀" * PolicyData.MIN_PASSWORD_LENGTH, id="emoji-counted-as-characters"
+            "😀🔑" * (PolicyData.MIN_PASSWORD_LENGTH // 2),
+            id="emoji-counted-as-characters",
         ),
         pytest.param("Tr0ub4dor&3", id="symbols"),
-        pytest.param("я" * PolicyData.MAX_PASSWORD_LENGTH, id="max-length"),
+        pytest.param("яы" * (PolicyData.MAX_PASSWORD_LENGTH // 2), id="max-length"),
     ],
 )
 def test_strict_accepts_valid_password(password: str) -> None:
@@ -86,6 +88,64 @@ def test_strict_rejects_common_password(password: str) -> None:
 
     # Assert
     assert problems == [PolicyData.PASSWORD_COMMON_MESSAGE]
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param(PasswordTestData.TRIVIAL, id="one-repeated-char"),
+        pytest.param("😀" * PolicyData.MIN_PASSWORD_LENGTH, id="one-repeated-emoji"),
+        pytest.param(" " * PolicyData.MIN_PASSWORD_LENGTH, id="spaces-only"),
+        pytest.param("\t" * PolicyData.MIN_PASSWORD_LENGTH, id="tabs-only"),
+        pytest.param(" \t \n \t \n", id="mixed-whitespace-only"),
+    ],
+)
+def test_strict_rejects_trivial_password(password: str) -> None:
+    """Строгий режим валидации отклоняет пароль из пробельных символов
+    или из одного повторяющегося символа."""
+    # Act
+    problems = validate_password(password, strict=True)
+
+    # Assert
+    assert problems == [PolicyData.PASSWORD_TRIVIAL_MESSAGE]
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param("zzzzzzzy", id="one-different-char"),
+        pytest.param("xyxyxyxz", id="almost-repeated-pattern"),
+        pytest.param("  pass word  ", id="spaces-around-words"),
+    ],
+)
+def test_strict_accepts_non_trivial_password(password: str) -> None:
+    """Строгий режим валидации принимает пароль, частично совпалабщий с простым."""
+    # Act
+    problems = validate_password(password, strict=True)
+
+    # Assert
+    assert problems == []
+
+
+@pytest.mark.parametrize(
+    ("password", "expected"),
+    [
+        pytest.param("aaaaaaaa", True, id="repeated"),
+        pytest.param("a", True, id="single-char"),
+        pytest.param("   ", True, id="spaces"),
+        pytest.param("", True, id="empty"),
+        pytest.param("ab", False, id="two-different-chars"),
+        pytest.param("a a", False, id="char-and-space"),
+    ],
+)
+def test_is_trivial_password(password: str, expected: bool) -> None:
+    """Пароль из пробельных символов или из
+    одного повторяющегося символа определяется как простой."""
+    # Act
+    result = is_trivial_password(password)
+
+    # Assert
+    assert result is expected
 
 
 @pytest.mark.parametrize(

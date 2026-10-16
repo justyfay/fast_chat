@@ -38,6 +38,11 @@ def is_common_password(password: str) -> bool:
     return bool(base) and base in common
 
 
+def is_trivial_password(password: str) -> bool:
+    """Проверяет, что пароль состоит только из пробельных символов или из одного повторяющегося символа."""
+    return not password.strip() or len(set(password)) == 1
+
+
 def validate_password(password: str, strict: bool) -> list[str]:
     """Метод возвращает список нарушенных правил валидации (пустой, если пароль подходит)."""
     messages = []
@@ -57,6 +62,9 @@ def validate_password(password: str, strict: bool) -> list[str]:
                 max_length=PolicyData.MAX_PASSWORD_LENGTH
             )
         )
-    if strict and not messages and is_common_password(password):
-        messages.append(PolicyData.PASSWORD_COMMON_MESSAGE)
+    if strict and not messages:
+        if is_trivial_password(password):
+            messages.append(PolicyData.PASSWORD_TRIVIAL_MESSAGE)
+        elif is_common_password(password):
+            messages.append(PolicyData.PASSWORD_COMMON_MESSAGE)
     return messages

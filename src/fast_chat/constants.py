@@ -9,6 +9,7 @@ class PolicyData:
     PASSWORD_TOO_LONG_MESSAGE = "Не длиннее {max_length} символов"
     PASSWORD_EMPTY_MESSAGE = "Пароль не может быть пустым"
     PASSWORD_COMMON_MESSAGE = "Слишком распространённый, выберите другой"
+    PASSWORD_TRIVIAL_MESSAGE = "Слишком простой, выберите другой"
 
 
 class AuthData:

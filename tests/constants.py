@@ -98,6 +98,7 @@ class PasswordTestData:
         max_length=PolicyData.MAX_PASSWORD_LENGTH
     )
     COMMON = "Password1!"
+    TRIVIAL = "z" * PolicyData.MIN_PASSWORD_LENGTH
     CYRILLIC_PASSPHRASE = "длинная парольная фраза"
     ONE_CHAR = "a"
 
