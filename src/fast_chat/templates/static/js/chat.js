@@ -5,6 +5,24 @@ let socket = null;
 
 marked.use({ renderer: { html: ({ text }) => escapeHtml(text) } });
 
+const ALLOWED_IMAGE_PATHS = ['/static/'];
+
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName !== 'IMG') return;
+  let isAllowed = false;
+  try {
+    const url = new URL(node.getAttribute('src') ?? '', window.location.origin);
+    isAllowed = url.origin === window.location.origin && ALLOWED_IMAGE_PATHS.some((path) => url.pathname.startsWith(path));
+  } catch (error) {
+    isAllowed = false;
+  }
+  if (isAllowed) {
+    node.removeAttribute('srcset');
+  } else {
+    node.replaceWith(document.createTextNode(node.getAttribute('alt') || '[изображение]'));
+  }
+});
+
 
 
 const API = {
