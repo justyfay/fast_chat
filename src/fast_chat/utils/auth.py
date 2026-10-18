@@ -30,6 +30,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(UTC).replace(tzinfo=None) + expires_delta
     else:
         expire = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30)
+    to_encode.setdefault("sid", uuid.uuid4().hex)
     to_encode.update({"exp": expire, "jti": uuid.uuid4().hex})
     encoded_jwt: str = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.algorithm

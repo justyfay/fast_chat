@@ -67,6 +67,16 @@ class TokenRevokedException(FastChatException):
     detail: str = "Токен отозван или недействителен. Войдите заново."
 
 
+class RefreshTokenInvalidException(FastChatException):
+    status_code: int = status.HTTP_401_UNAUTHORIZED
+    detail: str = "Сессия недействительна. Войдите заново."
+
+
+class RefreshRetryException(FastChatException):
+    status_code: int = status.HTTP_409_CONFLICT
+    detail: str = "Сессия уже обновляется. Повторите запрос."
+
+
 class TokenExpiredException(FastChatException):
     status_code: int = status.HTTP_401_UNAUTHORIZED
     detail: str = "Токен истек."

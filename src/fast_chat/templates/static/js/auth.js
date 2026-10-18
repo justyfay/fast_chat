@@ -83,3 +83,7 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         showToast('Нет связи с сервером. Проверьте соединение.', 'error');
     }
 });
+
+refreshSession().then((isSessionAlive) => {
+    if (isSessionAlive) window.location.href = '/';
+});

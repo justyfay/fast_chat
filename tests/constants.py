@@ -9,6 +9,7 @@ class RoutersTestData:
     REGISTER_URL = "/v1/auth/register"
     LOGIN_URL = "/v1/auth/login"
     LOGOUT_URL = "/v1/auth/logout"
+    REFRESH_URL = "/v1/auth/refresh"
 
     # Пользователи
     CURRENT_USER_URL = "/v1/users/current_user"
@@ -108,3 +109,5 @@ class TokenTestData:
     SUBJECT = "nobody@example.com"
     GARBAGE_TOKEN = "not-a-jwt"
     REVOKED_MESSAGE = "Токен отозван"
+    EXPIRED_MESSAGE = "Токен истек"
+    USED_LONG_AGO_SECONDS = 100

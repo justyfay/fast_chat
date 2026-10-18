@@ -24,3 +24,25 @@ function showToast(message, type = 'info') {
     toast.addEventListener('animationend', () => toast.remove(), { once: true });
   }, TOAST_DURATION_MS);
 }
+
+let refreshPromise = null;
+
+function refreshSession() {
+  refreshPromise ??= fetch('/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+    .then((response) => response.ok || response.status === 409)
+    .catch(() => false)
+    .finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function apiFetch(url, options) {
+  let response = await fetch(url, options);
+  if (response.status === 401 || response.redirected) {
+    if (!(await refreshSession())) {
+      window.location.href = '/login';
+      return response;
+    }
+    response = await fetch(url, options);
+  }
+  return response;
+}

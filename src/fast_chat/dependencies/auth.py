@@ -1,8 +1,7 @@
-from datetime import timezone, datetime
-
 from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from jose.exceptions import ExpiredSignatureError
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -49,12 +48,10 @@ async def get_current_user(
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
+    except ExpiredSignatureError:
+        raise TokenExpiredException
     except JWTError as e:
-        if str(e) == "Signature has expired.":
-            raise HTTPException(
-                detail="Signature has expired.", status_code=status.HTTP_400_BAD_REQUEST
-            )
-        elif str(e) == "Not enough segments":
+        if str(e) == "Not enough segments":
             raise HTTPException(
                 detail="Wrong Token or missing", status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -64,16 +61,13 @@ async def get_current_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-    expire: str = payload.get("exp")
-    expire_time = datetime.fromtimestamp(int(expire), tz=timezone.utc)
-    if (not expire) or (expire_time < datetime.now(timezone.utc)):
-        raise TokenExpiredException
     username: str = payload.get("sub")
     if not username:
         raise NoFoundUserException
 
     jti: str | None = payload.get("jti")
-    if not jti or await is_token_revoked(redis, jti):
+    sid: str | None = payload.get("sid")
+    if not jti or not sid or await is_token_revoked(redis, jti, sid):
         raise TokenRevokedException
 
     user = await UserDAO.find_one_or_none(db_session=session, username=username)
@@ -107,10 +101,11 @@ async def get_ws_user(
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
     jti: str | None = payload.get("jti")
-    if not jti:
+    sid: str | None = payload.get("sid")
+    if not jti or not sid:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
     try:
-        revoked = await is_token_revoked(redis, jti)
+        revoked = await is_token_revoked(redis, jti, sid)
     except ServiceUnavailable:
         raise WebSocketException(code=status.WS_1013_TRY_AGAIN_LATER)
     if revoked:

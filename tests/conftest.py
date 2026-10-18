@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Iterator
 
 import asyncpg
 import pytest
@@ -11,12 +11,18 @@ from sqlalchemy.pool import NullPool
 
 from fast_chat.config import settings
 from fast_chat.dependencies.database import get_session
-from fast_chat.dependencies.rate_limit import login_rate_limit, register_rate_limit
+from fast_chat.dependencies.rate_limit import (
+    login_rate_limit,
+    refresh_rate_limit,
+    register_rate_limit,
+)
 from fast_chat.dependencies.redis import get_redis
 from fast_chat.main import app
 from fast_chat.routers.v1.ws import active_connections
+from .constants import RoutersTestData
 from .dependencies import build_get_session
 from .utils.auth import UserData, register_and_login
+from .utils.types import CookiesGetter, CookiesRequest, SessionStarter
 from .utils.lock import release_test_db_lock, try_acquire_test_db_lock
 from .utils.migrate import (
     assert_test_database,
@@ -92,7 +98,9 @@ async def db_session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
 @pytest.fixture(scope="function")
 async def redis_connection() -> AsyncIterator[Redis]:
     """Redis на отдельной БД (не 0), чтобы не затронуть очередь Celery dev-окружения."""
-    redis_client = redis.from_url(f"{settings.redis_url}/{TEST_REDIS_DB}")
+    redis_client = redis.from_url(
+        f"{settings.redis_url}/{TEST_REDIS_DB}", decode_responses=True
+    )
     await redis_client.flushdb()
     yield redis_client
     await redis_client.flushdb()
@@ -106,6 +114,7 @@ async def no_rate_limit() -> None:
 def disable_rate_limits() -> None:
     app.dependency_overrides[login_rate_limit] = no_rate_limit
     app.dependency_overrides[register_rate_limit] = no_rate_limit
+    app.dependency_overrides[refresh_rate_limit] = no_rate_limit
 
 
 @pytest.fixture(scope="function")
@@ -133,8 +142,12 @@ async def other_client(db_override: None) -> AsyncIterator[TestClient]:
 
 
 @pytest.fixture(scope="function")
-async def real_db_client(pg_conn: Connection) -> AsyncIterator[TestClient]:
-    """Клиент на настоящего приложения с lifespan и общим пулом."""
+async def real_db_client(
+    pg_conn: Connection, redis_connection: Redis
+) -> AsyncIterator[TestClient]:
+    """Клиент на настоящего приложения с lifespan и общим пулом БД;
+    Redis тестовый, чтобы не оставлять токены в рабочем."""
+    app.dependency_overrides[get_redis] = lambda: redis_connection
     disable_rate_limits()
     async with TestClient(app) as test_client:
         yield test_client
@@ -146,6 +159,7 @@ def rate_limit_enabled(db_override: None) -> Iterator[None]:
     """Включает настоящие лимитеры в тестовой БД Redis."""
     app.dependency_overrides.pop(login_rate_limit)
     app.dependency_overrides.pop(register_rate_limit)
+    app.dependency_overrides.pop(refresh_rate_limit)
     yield
 
 
@@ -170,3 +184,52 @@ async def user_two(other_client: TestClient) -> UserData:
     return await register_and_login(
         other_client, email="courtois@example.com", full_name="Thibaut Courtois"
     )
+
+
+@pytest.fixture(scope="function")
+def cookies_of() -> CookiesGetter:
+    """Метод достаёт из ответа сервера cookie с токенами."""
+
+    def get_cookies(resp: Any) -> dict:
+        return {
+            name: resp.cookies.get(name) for name in ("access_token", "refresh_token")
+        }
+
+    return get_cookies
+
+
+@pytest.fixture(scope="function")
+def start_session(db_override: None, cookies_of: CookiesGetter) -> SessionStarter:
+    """Метод входит новым клиентом и возвращает cookie начатой сессии."""
+
+    async def start(user: UserData) -> dict:
+        resp = await TestClient(app).post(
+            RoutersTestData.LOGIN_URL,
+            form={"username": user.email, "password": user.password},
+        )
+        assert resp.status_code == 200, resp.text
+        return cookies_of(resp)
+
+    return start
+
+
+@pytest.fixture(scope="function")
+def refresh(db_override: None) -> CookiesRequest:
+    """Метод обновления сессии: отправляет `/auth/refresh` с переданными cookie."""
+
+    async def send(cookies: dict) -> Any:
+        return await TestClient(app).post(RoutersTestData.REFRESH_URL, cookies=cookies)
+
+    return send
+
+
+@pytest.fixture(scope="function")
+def current_user(db_override: None) -> CookiesRequest:
+    """Метод запроса текущего пользователя с переданными cookie."""
+
+    async def send(cookies: dict) -> Any:
+        return await TestClient(app).get(
+            RoutersTestData.CURRENT_USER_URL, cookies=cookies
+        )
+
+    return send

@@ -26,7 +26,6 @@ def find_user(mocker: MockerFixture) -> AsyncMock:
 
 @pytest.fixture
 def redis() -> AsyncMock:
-    """Redis, в котором ни один токен не отозван."""
     return AsyncMock(exists=AsyncMock(return_value=0))
 
 
@@ -52,6 +51,18 @@ def make_websocket(token: str | None) -> MagicMock:
                 algorithm=settings.algorithm,
             ),
             id="no-jti",
+        ),
+        pytest.param(
+            jwt.encode(
+                {
+                    "sub": USERNAME,
+                    "jti": "some-jti",
+                    "exp": datetime.now(UTC) + timedelta(minutes=5),
+                },
+                settings.secret_key,
+                algorithm=settings.algorithm,
+            ),
+            id="no-sid",
         ),
     ],
 )
