@@ -14,5 +14,11 @@ class PolicyData:
 class AuthData:
     """Константы аутентификации."""
 
-    # Ключ в Redis для отозванного токена (по `jti`), живёт до истечения токена
     REVOKED_TOKEN_KEY = "revoked_jti:{jti}"
+    REVOKED_SESSION_KEY = "revoked_sid:{sid}"
+    REFRESH_TOKEN_KEY = "refresh:{token_hash}"
+    REFRESH_USED_KEY = "refresh_used:{token_hash}"
+    SESSION_REFRESH_KEY = "session_refresh:{sid}"
+    REFRESH_COOKIE = "refresh_token"
+    REFRESH_COOKIE_PATH = "/v1/auth"
+    REFRESH_GRACE_SECONDS = 10

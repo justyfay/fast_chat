@@ -63,3 +63,8 @@ register_rate_limit = RateLimiter(
     settings.rate_limit_auth_attempts,
     settings.rate_limit_auth_seconds,
 )
+refresh_rate_limit = RateLimiter(
+    "refresh",
+    settings.rate_limit_auth_attempts * 6,
+    settings.rate_limit_auth_seconds,
+)

@@ -3,7 +3,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, Request, HTTPException
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from fast_chat.config import settings
@@ -56,6 +56,8 @@ app.add_middleware(
 # Обработчик для TokenExpiredException
 @app.exception_handler(TokenExpiredException)
 async def token_expired_exception_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/v1/"):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     return RedirectResponse(url="/login")
 
 

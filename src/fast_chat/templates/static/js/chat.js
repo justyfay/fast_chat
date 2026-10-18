@@ -29,19 +29,19 @@ const API = {
   base: () => window.location.href,
 
   async getConversations() {
-    const r = await fetch(`${this.base()}v1/conversations/`);
+    const r = await apiFetch(`${this.base()}v1/conversations/`);
     return r.json();
   },
 
   async addConversation(partnerId) {
-    const r = await fetch(`${this.base()}v1/conversations/${partnerId}`, {
+    const r = await apiFetch(`${this.base()}v1/conversations/${partnerId}`, {
       method: 'POST',
     });
     return r.json();
   },
 
   async deleteConversation(partnerId) {
-    const r = await fetch(`${this.base()}v1/conversations/${partnerId}`, {
+    const r = await apiFetch(`${this.base()}v1/conversations/${partnerId}`, {
       method: 'DELETE',
     });
     return r.ok;
@@ -49,12 +49,12 @@ const API = {
 
   async searchAvailableUsers(query = '') {
     const qs = query ? `?q=${encodeURIComponent(query)}` : '';
-    const r = await fetch(`${this.base()}v1/conversations/search${qs}`);
+    const r = await apiFetch(`${this.base()}v1/conversations/search${qs}`);
     return r.json();
   },
 
   async getMessages(userId) {
-    const r = await fetch(`${this.base()}v1/messages/${userId}`);
+    const r = await apiFetch(`${this.base()}v1/messages/${userId}`);
     return r.json();
   },
 };
@@ -340,7 +340,7 @@ class ChatApp {
     }
   }
 
-  async connectWebSocket() {
+  async connectWebSocket(isRetry = false) {
     if (socket && socket.readyState !== WebSocket.CLOSED) {
       socket.close();
     }
@@ -348,7 +348,11 @@ class ChatApp {
     const currentUser = document.getElementById('my_account').getAttribute('data-user-id');
     socket = new WebSocket(`ws://${window.location.host}/v1/ws/${currentUser}`);
 
-    socket.onopen = () => console.log('WebSocket соединение открыто.');
+    let isOpened = false;
+    socket.onopen = () => {
+      isOpened = true;
+      console.log('WebSocket соединение открыто.');
+    };
 
     socket.onmessage = (event) => {
       const incomingMessage = JSON.parse(event.data);
@@ -360,7 +364,12 @@ class ChatApp {
       }
     };
 
-    socket.onclose = () => console.log('WebSocket соединение закрыто.');
+    socket.onclose = async () => {
+      console.log('WebSocket соединение закрыто.');
+      if (!isOpened && !isRetry && (await refreshSession())) {
+        await this.connectWebSocket(true);
+      }
+    };
   }
 
   clearMessages() {
