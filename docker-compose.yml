@@ -1,17 +1,15 @@
 services:
   postgres:
     container_name: postgres_container
-    image: postgres
+    image: postgres:18
     env_file:
       - .env
     environment:
       POSTGRES_USER: $DB_USER
       POSTGRES_PASSWORD: ${DB_PASS:?}
       POSTGRES_DB: $DB_NAME
-      PGDATA: scripts/data/postgres
     volumes:
-      - .docker/scripts/pg_data:/var/lib/postgresql/data/pg_data
-      - .docker/scripts/:/scripts-entrypoint-initdb.d/
+      - postgres:/var/lib/postgresql
     ports:
       - "127.0.0.1:5432:5432"
     deploy:
