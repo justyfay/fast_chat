@@ -3,13 +3,14 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette import status
 
 from fast_chat.config import settings
 from fast_chat.dao.user import UserDAO
-from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.database import get_session_factory
 from fast_chat.dependencies.redis import get_redis
+from fast_chat.dependencies.services import get_user_service
 from fast_chat.exceptions import (
     ServiceUnavailable,
     TokenNoFoundException,
@@ -17,6 +18,7 @@ from fast_chat.exceptions import (
     TokenRevokedException,
     NoFoundUserException,
 )
+from fast_chat.services.user import UserService
 from fast_chat.utils.token_revocation import is_token_revoked
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -36,7 +38,7 @@ def get_token(request: Request):
 
 async def get_current_user(
     token: str = Depends(get_token),
-    session: AsyncSession = Depends(get_session),
+    users: UserService = Depends(get_user_service),
     redis: Redis = Depends(get_redis),
 ):
     """
@@ -70,7 +72,7 @@ async def get_current_user(
     if not jti or not sid or await is_token_revoked(redis, jti, sid):
         raise TokenRevokedException
 
-    user = await UserDAO.find_one_or_none(db_session=session, username=username)
+    user = await users.get_by_username(username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
@@ -80,7 +82,7 @@ async def get_current_user(
 
 async def get_ws_user(
     websocket: WebSocket,
-    session: AsyncSession = Depends(get_session),
+    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
     redis: Redis = Depends(get_redis),
 ):
     """
@@ -111,7 +113,8 @@ async def get_ws_user(
     if revoked:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
-    user = await UserDAO.find_one_or_none(db_session=session, username=username)
+    async with session_factory() as session:
+        user = await UserService(UserDAO(session)).get_by_username(username)
     if not user:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
     return user

@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
 from fast_chat.dependencies.auth import get_current_user
-from fast_chat.dependencies.database import get_session
 from fast_chat.utils.static_version import get_static_version
 
 pages_router = APIRouter(prefix="", tags=["Страницы"])
@@ -17,7 +15,6 @@ templates.env.globals["static_version"] = get_static_version
 async def chat_page(
     request: Request,
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
 ):
     return templates.TemplateResponse(
         "chat.html", {"request": request, "current_user": current_user}

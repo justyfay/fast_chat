@@ -28,6 +28,21 @@ class UserPasswordsNotEqual(FastChatException):
     detail: str = "Введенные пароли не совпадают."
 
 
+class CannotAddYourself(FastChatException):
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    detail: str = "Нельзя добавить самого себя."
+
+
+class UserNotFound(FastChatException):
+    status_code: int = status.HTTP_404_NOT_FOUND
+    detail: str = "Пользователь не найден."
+
+
+class ConversationNotFound(FastChatException):
+    status_code: int = status.HTTP_404_NOT_FOUND
+    detail: str = "Беседа не найдена."
+
+
 class FailedDbSession(FastChatException):
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail: str = "Не удалось получить объект сессии для работы с БД."

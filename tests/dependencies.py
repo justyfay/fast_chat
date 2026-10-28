@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
 def build_get_session(engine: AsyncEngine) -> Callable[[], AsyncIterator[AsyncSession]]:
-    """Тестовая замена `get_session`: тот же жизненный цикл сессии, но на engine теста."""
+    """Тестовый `get_session` на engine теста."""
     session_maker = async_sessionmaker(bind=engine, autoflush=False)
 
     async def get_test_session() -> AsyncIterator[AsyncSession]:
@@ -19,3 +19,15 @@ def build_get_session(engine: AsyncEngine) -> Callable[[], AsyncIterator[AsyncSe
             await session.close()
 
     return get_test_session
+
+
+def build_session_factory(
+    engine: AsyncEngine,
+) -> Callable[[], async_sessionmaker[AsyncSession]]:
+    """Фабрика сессий на engine теста."""
+    session_maker = async_sessionmaker(bind=engine, autoflush=False)
+
+    def get_test_session_factory() -> async_sessionmaker[AsyncSession]:
+        return session_maker
+
+    return get_test_session_factory

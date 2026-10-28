@@ -3,18 +3,13 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketException, Depends, status
 from sqlalchemy import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
-from fast_chat.dao.user import UserDAO
-from fast_chat.dao.message import MessageDAO
 from fast_chat.dependencies.auth import get_ws_user
 
 from fast_chat.logger import get_logger
-from fast_chat.dependencies.database import get_session
-from fast_chat.schemas.message import MessageRead
+from fast_chat.dependencies.services import ConnectionServices, get_connection_services
 from fast_chat.tasks.tasks import send_notification_to_telegram
-from fast_chat.utils.crypto import encrypt, decrypt
 
 logger = get_logger()
 ws_router = APIRouter(prefix="/ws", tags=["Сокеты"])
@@ -26,7 +21,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     user_id: int,
     current_user: RowMapping = Depends(get_ws_user),
-    session: AsyncSession = Depends(get_session),
+    services: ConnectionServices = Depends(get_connection_services),
 ):
     if user_id != current_user.id:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
@@ -40,43 +35,35 @@ async def websocket_endpoint(
         while True:
             data = await websocket.receive_json()
             try:
-                append_msg: RowMapping = await MessageDAO.add(
-                    db_session=session,
-                    sender_id=sender_id,
-                    body=encrypt(data["body"]),
-                    recipient_id=int(data["recipient_id"]),
-                )
-                appended_msg: RowMapping = await MessageDAO.find_one_or_none(
-                    db_session=session, id=append_msg["id"]
-                )
-                validated_msg = MessageRead.model_validate(
-                    {**dict(appended_msg), "body": decrypt(appended_msg["body"])}
-                )
+                recipient_id = int(data["recipient_id"])
+                async with services.message_service() as message_service:
+                    validated_msg = await message_service.send(
+                        sender_id, recipient_id, data["body"]
+                    )
                 logger.debug(
-                    f"Получено сообщение от: '{sender_id}', id={append_msg['id']}."
+                    f"Получено сообщение от: '{sender_id}', id={validated_msg.id}."
                 )
 
             except Exception as e:
                 logger.debug(f"Ошибка во время сохранения сообщения в БД: '{e}'.")
                 break
 
-            if int(data["recipient_id"]) in active_connections:
-                websocket_recipient: WebSocket = active_connections[
-                    int(data["recipient_id"])
-                ]
+            if recipient_id in active_connections:
+                websocket_recipient: WebSocket = active_connections[recipient_id]
                 logger.debug(
                     f"Веб-сокет получателя: '{data['recipient_id']}' найден: '{websocket}'."
                 )
 
                 await websocket_recipient.send_json(validated_msg.model_dump())
                 logger.debug(
-                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{data['recipient_id']}'",
+                    f"Сообщение id={validated_msg.id} отправлено пользователю: '{data['recipient_id']}'",
                 )
 
             else:
-                recipient_user: RowMapping = await UserDAO.find_one_or_none(
-                    db_session=session, id=int(data["recipient_id"])
-                )
+                async with services.user_service() as user_service:
+                    recipient_user: RowMapping = await user_service.get_by_id(
+                        recipient_id
+                    )
 
                 if recipient_user.telegram_unic_code is not None:
                     logger.debug(
@@ -96,7 +83,7 @@ async def websocket_endpoint(
 
                 await websocket_recipient.send_json(validated_msg.model_dump())
                 logger.debug(
-                    f"Сообщение id={appended_msg['id']} отправлено пользователю: '{sender_id}'",
+                    f"Сообщение id={validated_msg.id} отправлено пользователю: '{sender_id}'",
                 )
 
     except WebSocketDisconnect:

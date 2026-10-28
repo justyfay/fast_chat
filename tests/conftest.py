@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.pool import NullPool
 
 from fast_chat.config import settings
-from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.database import get_session, get_session_factory
 from fast_chat.dependencies.rate_limit import (
     login_rate_limit,
     refresh_rate_limit,
@@ -20,7 +20,7 @@ from fast_chat.dependencies.redis import get_redis
 from fast_chat.main import app
 from fast_chat.routers.v1.ws import active_connections
 from .constants import RoutersTestData
-from .dependencies import build_get_session
+from .dependencies import build_get_session, build_session_factory
 from .utils.auth import UserData, register_and_login
 from .utils.types import CookiesGetter, CookiesRequest, SessionStarter
 from .utils.lock import release_test_db_lock, try_acquire_test_db_lock
@@ -120,6 +120,7 @@ def disable_rate_limits() -> None:
 @pytest.fixture(scope="function")
 def db_override(engine: AsyncEngine, redis_connection: Redis) -> Iterator[None]:
     app.dependency_overrides[get_session] = build_get_session(engine)
+    app.dependency_overrides[get_session_factory] = build_session_factory(engine)
     app.dependency_overrides[get_redis] = lambda: redis_connection
     disable_rate_limits()
     active_connections.clear()

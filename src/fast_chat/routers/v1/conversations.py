@@ -1,12 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from fast_chat.dao.conversation import ConversationDAO
-from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.auth import get_current_user
-from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.services import get_conversation_service
 from fast_chat.schemas.user import UserSchema
+from fast_chat.services.conversation import ConversationService
 
 conv_router = APIRouter(prefix="/conversations", tags=["Беседы"])
 
@@ -18,11 +16,9 @@ conv_router = APIRouter(prefix="/conversations", tags=["Беседы"])
 )
 async def get_conversations(
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: ConversationService = Depends(get_conversation_service),
 ):
-    return await ConversationDAO.get_partners(
-        db_session=session, user_id=current_user.id
-    )
+    return await service.get_partners(current_user.id)
 
 
 @conv_router.post(
@@ -33,22 +29,9 @@ async def get_conversations(
 async def add_conversation(
     recipient_id: int,
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: ConversationService = Depends(get_conversation_service),
 ):
-    if recipient_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot add yourself"
-        )
-
-    recipient = await UserDAO.find_one_or_none(db_session=session, id=recipient_id)
-    if not recipient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    added = await ConversationDAO.add_conversation(
-        db_session=session, user_id=current_user.id, recipient_id=recipient_id
-    )
+    added = await service.add(current_user.id, recipient_id)
     return {"added": added, "recipient_id": recipient_id}
 
 
@@ -60,15 +43,9 @@ async def add_conversation(
 async def delete_conversation(
     recipient_id: int,
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: ConversationService = Depends(get_conversation_service),
 ):
-    deleted = await ConversationDAO.delete_conversation(
-        db_session=session, user_id=current_user.id, recipient_id=recipient_id
-    )
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
-        )
+    await service.delete(current_user.id, recipient_id)
     return {"deleted": True, "recipient_id": recipient_id}
 
 
@@ -80,12 +57,6 @@ async def delete_conversation(
 async def search_available_users(
     q: str = "",
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: ConversationService = Depends(get_conversation_service),
 ):
-    users = await ConversationDAO.get_available_users(
-        db_session=session, user_id=current_user.id
-    )
-    if q:
-        q_lower = q.lower()
-        users = [u for u in users if q_lower in u["full_name"].lower()]
-    return users
+    return await service.search_available(current_user.id, q)

@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from fast_chat.dao.message import MessageDAO
 from fast_chat.dependencies.auth import get_current_user
-from fast_chat.dependencies.database import get_session
+from fast_chat.dependencies.services import get_message_service
 from fast_chat.schemas.message import MessageCreate, MessageRead
-from fast_chat.utils.crypto import encrypt, decrypt
+from fast_chat.services.message import MessageService
 
 msg_router = APIRouter(prefix="/messages", tags=["Сообщения"])
 
@@ -15,14 +13,9 @@ msg_router = APIRouter(prefix="/messages", tags=["Сообщения"])
 async def send_message(
     message: MessageCreate,
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: MessageService = Depends(get_message_service),
 ):
-    await MessageDAO.add(
-        db_session=session,
-        sender_id=current_user.id,
-        body=encrypt(message.body),
-        recipient_id=message.recipient_id,
-    )
+    await service.send(current_user.id, message.recipient_id, message.body)
 
     return {
         "recipient_id": message.recipient_id,
@@ -36,20 +29,6 @@ async def send_message(
 async def get_messages(
     user_id: int,
     current_user: RowMapping = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: MessageService = Depends(get_message_service),
 ):
-    messages = (
-        await MessageDAO.get_messages_between_users(
-            db_session=session, user_id_1=user_id, user_id_2=current_user.id
-        )
-        or []
-    )
-    return [
-        MessageRead(
-            id=msg.id,
-            sender_id=msg.sender_id,
-            recipient_id=msg.recipient_id,
-            body=decrypt(msg.body),
-        )
-        for msg in messages
-    ]
+    return await service.get_history(current_user.id, user_id)

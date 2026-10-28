@@ -7,8 +7,7 @@ from fast_chat.dao.user import UserDAO
 
 
 async def _add_user(db_session: AsyncSession, full_name: str, email: str) -> int:
-    created = await UserDAO.add(
-        db_session=db_session,
+    created = await UserDAO(db_session).add(
         username=email,
         email=email,
         full_name=full_name,
@@ -28,8 +27,8 @@ async def test_add_duplicate_conversation(
     user_two = await _add_user(db_session, "Thibaut Courtois", "courtois@example.com")
 
     # Act
-    first = await ConversationDAO.add_conversation(db_session, user_one, user_two)
-    second = await ConversationDAO.add_conversation(db_session, user_one, user_two)
+    first = await ConversationDAO(db_session).add_conversation(user_one, user_two)
+    second = await ConversationDAO(db_session).add_conversation(user_one, user_two)
 
     # Assert
     assert first is True
@@ -44,11 +43,11 @@ async def test_partners_priority_list(
     user_one = await _add_user(db_session, "Alisson Becker", "alisson@example.com")
     user_two = await _add_user(db_session, "Thibaut Courtois", "courtois@example.com")
     user_three = await _add_user(db_session, "David de Gea", "de.gea@example.com")
-    await ConversationDAO.add_conversation(db_session, user_one, user_three)
-    await ConversationDAO.add_conversation(db_session, user_one, user_two)
+    await ConversationDAO(db_session).add_conversation(user_one, user_three)
+    await ConversationDAO(db_session).add_conversation(user_one, user_two)
 
     # Act
-    partners = await ConversationDAO.get_partners(db_session, user_one)
+    partners = await ConversationDAO(db_session).get_partners(user_one)
 
     # Assert
     assert [p["id"] for p in partners] == [user_three, user_two]
@@ -65,10 +64,10 @@ async def test_get_available_users_excludes_self_and_partners(
     user_one = await _add_user(db_session, "Alisson Becker", "alisson@example.com")
     user_two = await _add_user(db_session, "Thibaut Courtois", "courtois@example.com")
     user_three = await _add_user(db_session, "David de Gea", "de.gea@example.com")
-    await ConversationDAO.add_conversation(db_session, user_one, user_two)
+    await ConversationDAO(db_session).add_conversation(user_one, user_two)
 
     # Act
-    available = await ConversationDAO.get_available_users(db_session, user_one)
+    available = await ConversationDAO(db_session).get_available_users(user_one)
 
     # Assert
     assert [u["id"] for u in available] == [user_three]
@@ -83,7 +82,7 @@ async def test_delete_missing_conversation(
     user_two = await _add_user(db_session, "Thibaut Courtois", "courtois@example.com")
 
     # Act
-    deleted = await ConversationDAO.delete_conversation(db_session, user_one, user_two)
+    deleted = await ConversationDAO(db_session).delete_conversation(user_one, user_two)
 
     # Assert
     assert deleted is False
