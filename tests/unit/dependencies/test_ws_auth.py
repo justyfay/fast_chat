@@ -18,7 +18,7 @@ USERNAME = "alisson@example.com"
 @pytest.fixture
 def find_user(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch(
-        "fast_chat.dependencies.auth.UserDAO.find_one_or_none",
+        "fast_chat.dependencies.auth.UserService.get_by_username",
         new_callable=AsyncMock,
         return_value=SimpleNamespace(id=1, username=USERNAME),
     )
@@ -72,7 +72,9 @@ async def test_error_ws_user_with_bad_token(
     """Невалидный токен отдает код 1008."""
     # Act
     with pytest.raises(WebSocketException) as exc_info:
-        await get_ws_user(make_websocket(token), session=MagicMock(), redis=redis)
+        await get_ws_user(
+            make_websocket(token), session_factory=MagicMock(), redis=redis
+        )
 
     # Assert
     assert exc_info.value.code == status.WS_1008_POLICY_VIOLATION
@@ -89,7 +91,9 @@ async def test_error_ws_user_with_revoked_token(
 
     # Act
     with pytest.raises(WebSocketException) as exc_info:
-        await get_ws_user(make_websocket(token), session=MagicMock(), redis=redis)
+        await get_ws_user(
+            make_websocket(token), session_factory=MagicMock(), redis=redis
+        )
 
     # Assert
     assert exc_info.value.code == status.WS_1008_POLICY_VIOLATION
@@ -106,7 +110,9 @@ async def test_error_ws_user_when_redis_is_unavailable(
 
     # Act
     with pytest.raises(WebSocketException) as exc_info:
-        await get_ws_user(make_websocket(token), session=MagicMock(), redis=redis)
+        await get_ws_user(
+            make_websocket(token), session_factory=MagicMock(), redis=redis
+        )
 
     # Assert
     assert exc_info.value.code == status.WS_1013_TRY_AGAIN_LATER
@@ -123,7 +129,9 @@ async def test_error_ws_user_when_user_not_found(
 
     # Act
     with pytest.raises(WebSocketException) as exc_info:
-        await get_ws_user(make_websocket(token), session=MagicMock(), redis=redis)
+        await get_ws_user(
+            make_websocket(token), session_factory=MagicMock(), redis=redis
+        )
 
     # Assert
     assert exc_info.value.code == status.WS_1008_POLICY_VIOLATION
@@ -137,7 +145,9 @@ async def test_ws_user_returns_user_name_by_valid_token(
     token = create_access_token({"sub": USERNAME})
 
     # Act
-    user = await get_ws_user(make_websocket(token), session=MagicMock(), redis=redis)
+    user = await get_ws_user(
+        make_websocket(token), session_factory=MagicMock(), redis=redis
+    )
 
     # Assert
     assert user.username == USERNAME

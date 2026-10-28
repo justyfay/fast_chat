@@ -8,3 +8,4 @@ logger = get_logger()
 
 class UserDAO(BaseDAO):
     model: type[Base] = User
+    filterable_fields = frozenset({"id", "username", "email"})
