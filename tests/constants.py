@@ -111,3 +111,11 @@ class TokenTestData:
     REVOKED_MESSAGE = "Токен отозван"
     EXPIRED_MESSAGE = "Токен истек"
     USED_LONG_AGO_SECONDS = 100
+
+
+class MigrationTestData:
+    BEFORE_USER_UNIQUE_REVISION = "b2c3d4e5f6a7"
+    USER_INSERT = (
+        'INSERT INTO "user" (email, username, full_name, hashed_password, created_at) '
+        "VALUES ($1, $1, $2, 'hash', now())"
+    )

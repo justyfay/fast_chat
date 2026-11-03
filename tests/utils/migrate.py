@@ -43,12 +43,17 @@ def create_pg_database(db_name: str) -> None:
     asyncio.run(_create_database_if_not_exists(db_name))
 
 
-def upgrade_pg_schema() -> None:
-    """Применяет миграции Alembic к тестовой БД (вызывается вне event loop)."""
+def get_alembic_config() -> Config:
+    """Конфигурация Alembic для тестовой БД."""
     assert_test_database(settings.db_name)
     alembic_config = Config(str(PROJECT_ROOT / "alembic.ini"))
     alembic_config.set_main_option("script_location", str(PROJECT_ROOT / "migrations"))
-    command.upgrade(alembic_config, "head")
+    return alembic_config
+
+
+def upgrade_pg_schema() -> None:
+    """Применяет миграции Alembic к тестовой БД (вызывается вне event loop)."""
+    command.upgrade(get_alembic_config(), "head")
 
 
 async def clear_pg_database(conn: Connection) -> None:

@@ -20,6 +20,12 @@ class UserRegisterSchema(BaseModel):
     password: str
     repeat_password: str
 
+    @field_validator("email")
+    @classmethod
+    def lowercase_email(cls, value: str) -> str:
+        """Приводит email к нижнему регистру."""
+        return value.lower()
+
     @field_validator("password")
     @classmethod
     def check_password_policy(cls, value: str) -> str:

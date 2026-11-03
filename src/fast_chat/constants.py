@@ -22,3 +22,7 @@ class AuthData:
     REFRESH_COOKIE = "refresh_token"
     REFRESH_COOKIE_PATH = "/v1/auth"
     REFRESH_GRACE_SECONDS = 10
+
+
+class DatabaseData:
+    UNIQUE_VIOLATION_SQLSTATE = "23505"

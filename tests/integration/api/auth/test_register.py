@@ -1,3 +1,7 @@
+import asyncio
+from unittest.mock import AsyncMock
+
+import pytest
 from async_asgi_testclient import TestClient
 from asyncpg import Connection
 from fastapi import status
@@ -166,3 +170,88 @@ async def test_login_is_not_checked_against_password_policy(
 
     # Act / Assert
     await login_user(main_client, payload["email"], PasswordTestData.ONE_CHAR)
+
+
+@pytest.mark.parametrize(
+    "second_email",
+    [
+        pytest.param("ALISSON@EXAMPLE.COM", id="upper-case"),
+        pytest.param("Alisson@Example.com", id="mixed-case"),
+    ],
+)
+async def test_error_register_same_email_in_other_case(
+    second_email: str, main_client: TestClient, pg_conn: Connection
+) -> None:
+    """Email, отличающийся только регистром, считается уже существующим"""
+    # Arrange
+    await main_client.post(RoutersTestData.REGISTER_URL, json=register_payload())
+
+    # Act
+    resp = await main_client.post(
+        RoutersTestData.REGISTER_URL, json=register_payload(email=second_email)
+    )
+
+    # Assert
+    assert resp.status_code == status.HTTP_409_CONFLICT
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 1
+
+
+async def test_register_stores_email_in_lower_case(
+    main_client: TestClient, pg_conn: Connection
+) -> None:
+    """Email и username сохраняются в нижнем регистре"""
+    # Arrange
+    payload = register_payload(email="Alisson@Example.com")
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_200_OK
+    row = await pg_conn.fetchrow('SELECT email, username FROM "user"')
+    assert (row["email"], row["username"]) == ("alisson@example.com",) * 2
+
+
+async def test_parallel_register_of_same_email_creates_one_user(
+    main_client: TestClient, pg_conn: Connection
+) -> None:
+    """
+    Два одновременных запроса регистрации с одним email - один успешный,
+    второй с ошибкой. В БД сохраняется одна запись.
+    """
+    # Arrange
+    payload = register_payload()
+
+    # Act
+    responses = await asyncio.gather(
+        main_client.post(RoutersTestData.REGISTER_URL, json=payload),
+        main_client.post(RoutersTestData.REGISTER_URL, json=payload),
+    )
+
+    # Assert
+    assert sorted(resp.status_code for resp in responses) == [
+        status.HTTP_200_OK,
+        status.HTTP_409_CONFLICT,
+    ]
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 1
+
+
+async def test_unique_index_gives_409_when_existence_check_is_skipped(
+    main_client: TestClient, pg_conn: Connection, mocker: MockerFixture
+) -> None:
+    """Если проверка «пользователь существует» пропустила дубль, ошибка приходит от БД, а не сервиса."""
+    # Arrange
+    payload = register_payload()
+    await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+    mocker.patch(
+        "fast_chat.dao.user.UserDAO.find_one_or_none",
+        new_callable=AsyncMock,
+        return_value=None,
+    )
+
+    # Act
+    resp = await main_client.post(RoutersTestData.REGISTER_URL, json=payload)
+
+    # Assert
+    assert resp.status_code == status.HTTP_409_CONFLICT
+    assert await pg_conn.fetchval('SELECT count(*) FROM "user"') == 1
