@@ -87,3 +87,24 @@ async def test_logout_deletes_access_token_cookie(
     set_cookie = resp.headers["set-cookie"]
     assert "access_token=" in set_cookie
     assert "Max-Age=0" in set_cookie
+
+
+async def test_login_is_case_insensitive_for_email(main_client: TestClient) -> None:
+    """Вход работает при любом регистре email, токен выдаётся на email в нижнем регистре"""
+    # Arrange
+    user = await register_user(main_client)
+
+    # Act
+    resp = await main_client.post(
+        RoutersTestData.LOGIN_URL,
+        form={"username": user.email.upper(), "password": user.password},
+    )
+
+    # Assert
+    assert resp.status_code == status.HTTP_200_OK
+    payload = jwt.decode(
+        resp.json()["access_token"],
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+    )
+    assert payload["sub"] == user.email

@@ -3,8 +3,10 @@ from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from redis.asyncio import Redis
+from sqlalchemy.exc import IntegrityError
 
 from fast_chat.config import settings
+from fast_chat.constants import DatabaseData
 from fast_chat.dao.user import UserDAO
 from fast_chat.exceptions import (
     RefreshTokenInvalidException,
@@ -62,16 +64,24 @@ class AuthService:
         if data.password.encode() != data.repeat_password.encode():
             raise UserPasswordsNotEqual
 
-        created_user = await self.users.add(
-            username=data.email,
-            telegram_unic_code=int(data.telegram_unic_code)
-            if data.telegram_unic_code != ""
-            else None,
-            email=data.email,
-            full_name=data.full_name,
-            hashed_password=get_hashed_password(data.password),
-            created_at=datetime.now(UTC).replace(tzinfo=None),
-        )
+        try:
+            created_user = await self.users.add(
+                username=data.email,
+                telegram_unic_code=int(data.telegram_unic_code)
+                if data.telegram_unic_code != ""
+                else None,
+                email=data.email,
+                full_name=data.full_name,
+                hashed_password=get_hashed_password(data.password),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+            )
+        except IntegrityError as e:
+            if (
+                getattr(e.orig, "sqlstate", None)
+                != DatabaseData.UNIQUE_VIOLATION_SQLSTATE
+            ):
+                raise
+            raise UserAlreadyExists from e
         return UserSchema.model_construct(
             id=created_user["id"],
             email=data.email,
@@ -83,9 +93,10 @@ class AuthService:
         """
         Проверяет пароль и начинает новую сессию. Возвращает access и refresh-токены.
 
-        :param username: Имя пользователя (email)
+        :param username: Имя пользователя (email), регистр не важен
         :param password: Пароль в открытом виде
         """
+        username = username.lower()
         current_user = await self.users.find_one_or_none(username=username)
         if not current_user or not verify_password(
             password, current_user["hashed_password"]
