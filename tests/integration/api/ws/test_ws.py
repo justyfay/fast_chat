@@ -255,8 +255,13 @@ async def test_spoofed_sender_id_is_not_saved_in_db(
         await receive_json(user_one_ws)
 
     # Assert
-    row = await pg_conn.fetchrow("SELECT sender_id, recipient_id FROM message")
-    assert (row["sender_id"], row["recipient_id"]) == (user_one.id, user_two.id)
+    row = await pg_conn.fetchrow(
+        "SELECT m.sender_id, c.direct_key FROM message m JOIN chat c ON c.id = m.chat_id"
+    )
+    assert (row["sender_id"], row["direct_key"]) == (
+        user_one.id,
+        f"{user_one.id}:{user_two.id}",
+    )
 
 
 async def test_message_without_sender_id_is_accepted(

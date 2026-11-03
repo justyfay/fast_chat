@@ -59,7 +59,7 @@ async def test_session_rolls_back_all_writes_on_error(
     session = await dependency.__anext__()
     await _add_user(session, "alisson@example.com")
     with pytest.raises(IntegrityError):
-        await MessageDAO(session).add(sender_id=1, recipient_id=2, body="no users")
+        await MessageDAO(session).add(chat_id=1, sender_id=1, body="no chat")
 
     # Act
     with pytest.raises(IntegrityError):

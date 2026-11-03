@@ -1,6 +1,6 @@
-from typing import Any, Sequence
+from typing import Sequence
 
-from sqlalchemy import select, or_, and_, Result, RowMapping
+from sqlalchemy import select
 
 from fast_chat.logger import get_logger
 from fast_chat.dao.base import BaseDAO
@@ -14,36 +14,19 @@ class MessageDAO(BaseDAO):
     model: type[Base] = Message
     filterable_fields = frozenset({"id"})
 
-    async def get_messages_between_users(self, user_id_1: int, user_id_2: int):
+    async def get_chat_messages(self, chat_id: int) -> Sequence[Message]:
         """
-        Асинхронно находит и возвращает все сообщения между двумя пользователями.
+        Возвращает все сообщения чата по возрастанию id.
 
-        Аргументы:
-            user_id_1: ID первого пользователя.
-            user_id_2: ID второго пользователя.
-
-        Возвращает:
-            Список сообщений между двумя пользователями.
+        :param chat_id: Идентификатор чата
         """
         query = (
             select(self.model)
-            .filter(
-                or_(
-                    and_(
-                        self.model.sender_id == user_id_1,
-                        self.model.recipient_id == user_id_2,
-                    ),  # noqa
-                    and_(
-                        self.model.sender_id == user_id_2,
-                        self.model.recipient_id == user_id_1,
-                    ),  # noqa
-                )
-            )
+            .where(self.model.chat_id == chat_id)
             .order_by(self.model.id)
-        )  # noqa
-        query_execute: Result[tuple | Any] = await self.session.execute(query)
-        result: Sequence[RowMapping | Any] | None = query_execute.scalars().all()
+        )
+        result: Sequence[Message] = (await self.session.execute(query)).scalars().all()
         logger.debug(
-            f"[message] get_messages_between_users: count={len(result) if result else 0}"
+            f"[message] get_chat_messages: chat_id={chat_id}, count={len(result)}"
         )
         return result

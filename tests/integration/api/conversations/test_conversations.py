@@ -5,10 +5,10 @@ from ....constants import RoutersTestData
 from ....utils.auth import UserData, register_user
 
 
-async def test_conversations_list_is_empty_by_default(
+async def test_chats_list_is_empty_by_default(
     main_client: TestClient, user_one: UserData
 ) -> None:
-    """У нового пользователя список бесед пуст"""
+    """У нового пользователя список чатов пуст"""
     # Act
     resp = await main_client.get(RoutersTestData.CONVERSATIONS_URL)
 
@@ -17,10 +17,10 @@ async def test_conversations_list_is_empty_by_default(
     assert resp.json() == []
 
 
-async def test_add_conversation_creates_record(
+async def test_add_chat_creates_record(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
-    """Добавление собеседника создаёт беседу"""
+    """Добавление собеседника создаёт чат"""
     # Act
     resp = await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
 
@@ -31,7 +31,7 @@ async def test_add_conversation_creates_record(
     assert [partner["id"] for partner in partners] == [user_two.id]
 
 
-async def test_error_add_conversation_twice(
+async def test_error_add_chat_twice(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
     """Повторное добавление того же собеседника не создаёт дубликат"""
@@ -47,10 +47,10 @@ async def test_error_add_conversation_twice(
     assert len((await main_client.get(RoutersTestData.CONVERSATIONS_URL)).json()) == 1
 
 
-async def test_error_add_conversation_with_yourself(
+async def test_error_add_chat_with_yourself(
     main_client: TestClient, user_one: UserData
 ) -> None:
-    """Нельзя добавить в беседы самого себя"""
+    """Нельзя добавить в чаты самого себя"""
     # Act
     resp = await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_one.id}")
 
@@ -58,7 +58,7 @@ async def test_error_add_conversation_with_yourself(
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
 
-async def test_error_add_conversation_with_unknown_user(
+async def test_error_add_chat_with_unknown_user(
     main_client: TestClient, user_one: UserData
 ) -> None:
     """Добавление несуществующего пользователя возвращает ошибку"""
@@ -69,13 +69,13 @@ async def test_error_add_conversation_with_unknown_user(
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
-async def test_conversation_is_one_directional(
+async def test_chat_is_visible_to_both_users(
     main_client: TestClient,
     other_client: TestClient,
     user_one: UserData,
     user_two: UserData,
 ) -> None:
-    """Беседа односторонняя: у добавленного собеседника она не появляется"""
+    """Чат общий: у добавленного собеседника он появляется тоже"""
     # Arrange
     await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
 
@@ -85,13 +85,55 @@ async def test_conversation_is_one_directional(
     ).json()
 
     # Assert
-    assert courtois_partners == []
+    assert [partner["id"] for partner in courtois_partners] == [user_one.id]
 
 
-async def test_delete_conversation_removes_record(
+async def test_delete_chat_keeps_it_for_partner(
+    main_client: TestClient,
+    other_client: TestClient,
+    user_one: UserData,
+    user_two: UserData,
+) -> None:
+    """Удаление чата убирает его только из своего списка, у собеседника он остаётся"""
+    # Arrange
+    await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
+
+    # Act
+    await main_client.delete(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
+
+    # Assert
+    courtois_partners = (
+        await other_client.get(RoutersTestData.CONVERSATIONS_URL)
+    ).json()
+    assert [partner["id"] for partner in courtois_partners] == [user_one.id]
+
+
+async def test_new_message_returns_deleted_chat_to_list(
+    main_client: TestClient,
+    other_client: TestClient,
+    user_one: UserData,
+    user_two: UserData,
+) -> None:
+    """Новое сообщение возвращает в список чат, который пользователь ранее убрал, с историей"""
+    # Arrange
+    await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
+    await main_client.delete(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
+
+    # Act
+    await other_client.post(
+        RoutersTestData.MESSAGES_SEND_URL,
+        json={"recipient_id": user_one.id, "body": "вернись"},
+    )
+
+    # Assert
+    partners = (await main_client.get(RoutersTestData.CONVERSATIONS_URL)).json()
+    assert [partner["id"] for partner in partners] == [user_two.id]
+
+
+async def test_delete_chat_removes_record(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
-    """Удаление беседы убирает собеседника из списка"""
+    """Удаление чата убирает собеседника из списка"""
     # Arrange
     await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
 
@@ -104,10 +146,10 @@ async def test_delete_conversation_removes_record(
     assert (await main_client.get(RoutersTestData.CONVERSATIONS_URL)).json() == []
 
 
-async def test_error_delete_missing_conversation(
+async def test_error_delete_missing_chat(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
-    """Удаление отсутствующей беседы возвращает ошибку"""
+    """Удаление отсутствующего чата возвращает ошибку"""
     # Act
     resp = await main_client.delete(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
 
@@ -146,10 +188,10 @@ async def test_search_filters_by_name_case_insensitive(
     assert [user["id"] for user in resp.json()] == [user_two.id]
 
 
-async def test_conversations_list_does_not_expose_hashed_password(
+async def test_chats_list_does_not_expose_hashed_password(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
-    """Список бесед не содержит хеш пароля собеседников"""
+    """Список чатов не содержит хеш пароля собеседников"""
     # Arrange
     await main_client.post(f"{RoutersTestData.CONVERSATIONS_URL}{user_two.id}")
 
@@ -164,7 +206,7 @@ async def test_conversations_list_does_not_expose_hashed_password(
 async def test_search_does_not_expose_hashed_password(
     main_client: TestClient, user_one: UserData, user_two: UserData
 ) -> None:
-    """Результаты поиска бесед не содержат хеш пароля пользователей"""
+    """Результаты поиска чатов не содержат хеш пароля пользователей"""
     # Act
     resp = await main_client.get(RoutersTestData.CONVERSATIONS_SEARCH_URL)
 
@@ -173,10 +215,10 @@ async def test_search_does_not_expose_hashed_password(
     assert all("hashed_password" not in user for user in resp.json())
 
 
-async def test_conversations_without_cookie_redirects_to_login(
+async def test_chats_without_cookie_redirects_to_login(
     main_client: TestClient,
 ) -> None:
-    """Неавторизованный запрос списка бесед перенаправляет на страницу входа"""
+    """Неавторизованный запрос списка чатов перенаправляет на страницу входа"""
     # Act
     resp = await main_client.get(
         RoutersTestData.CONVERSATIONS_URL, allow_redirects=False

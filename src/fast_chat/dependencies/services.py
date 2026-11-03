@@ -5,13 +5,13 @@ from fastapi import Depends
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from fast_chat.dao.conversation import ConversationDAO
+from fast_chat.dao.chat import ChatDAO
 from fast_chat.dao.message import MessageDAO
 from fast_chat.dao.user import UserDAO
 from fast_chat.dependencies.database import get_session, get_session_factory
 from fast_chat.dependencies.redis import get_redis
 from fast_chat.services.auth import AuthService
-from fast_chat.services.conversation import ConversationService
+from fast_chat.services.chat import ChatService
 from fast_chat.services.message import MessageService
 from fast_chat.services.user import UserService
 
@@ -20,16 +20,16 @@ def get_user_service(session: AsyncSession = Depends(get_session)) -> UserServic
     return UserService(UserDAO(session))
 
 
-def get_conversation_service(
+def get_chat_service(
     session: AsyncSession = Depends(get_session),
-) -> ConversationService:
-    return ConversationService(ConversationDAO(session), UserDAO(session))
+) -> ChatService:
+    return ChatService(ChatDAO(session), UserDAO(session))
 
 
 def get_message_service(
     session: AsyncSession = Depends(get_session),
 ) -> MessageService:
-    return MessageService(MessageDAO(session))
+    return MessageService(MessageDAO(session), ChatDAO(session), UserDAO(session))
 
 
 def get_auth_service(
@@ -49,9 +49,11 @@ class ConnectionServices:
 
     @asynccontextmanager
     async def message_service(self) -> AsyncIterator[MessageService]:
-        """Сервис сообщений в одной транзакции (Коммит при выходе, откат при ошибке)."""
+        """Сервис сообщений в одной транзакции."""
         async with self.session_factory() as session, session.begin():
-            yield MessageService(MessageDAO(session))
+            yield MessageService(
+                MessageDAO(session), ChatDAO(session), UserDAO(session)
+            )
 
     @asynccontextmanager
     async def user_service(self) -> AsyncIterator[UserService]:
