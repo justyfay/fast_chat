@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fast_chat.dao.chat import ChatDAO
 from fast_chat.dao.message import MessageDAO
 from fast_chat.dao.user import UserDAO
 
@@ -20,36 +21,34 @@ async def _add_user(db_session: AsyncSession, full_name: str, email: str) -> int
     return created["id"]
 
 
-async def test_get_current_messages_between_users(
+async def test_get_chat_messages_returns_only_this_chat(
     db_session: AsyncSession,
 ) -> None:
-    """Выборка сообщений между двумя пользователями возвращает только их диалог."""
+    """Выборка сообщений чата возвращает только его сообщения по возрастанию id"""
     # Arrange
     user_one = await _add_user(db_session, "Alisson Becker", "alisson@example.com")
     user_two = await _add_user(db_session, "Thibaut Courtois", "courtois@example.com")
     de_gea = await _add_user(db_session, "David de Gea", "de.gea@example.com")
-    await MessageDAO(db_session).add(
-        sender_id=user_one, recipient_id=user_two, body="1"
-    )
-    await MessageDAO(db_session).add(
-        sender_id=user_two, recipient_id=user_one, body="2"
-    )
-    await MessageDAO(db_session).add(sender_id=user_one, recipient_id=de_gea, body="x")
+    chats = ChatDAO(db_session)
+    chat_id = await chats.get_or_create_direct(user_one, user_two)
+    other_chat_id = await chats.get_or_create_direct(user_one, de_gea)
+    messages = MessageDAO(db_session)
+    await messages.add(chat_id=chat_id, sender_id=user_one, body="1")
+    await messages.add(chat_id=chat_id, sender_id=user_two, body="2")
+    await messages.add(chat_id=other_chat_id, sender_id=user_one, body="x")
 
     # Act
-    messages = await MessageDAO(db_session).get_messages_between_users(
-        user_one, user_two
-    )
+    result = await messages.get_chat_messages(chat_id)
 
     # Assert
-    assert [m.body for m in messages] == ["1", "2"]
+    assert [m.body for m in result] == ["1", "2"]
 
 
-async def test_error_add_message_for_unknown_users(db_session: AsyncSession) -> None:
+async def test_error_add_message_to_unknown_chat(db_session: AsyncSession) -> None:
     """Ошибка БД отображается при добавлении невалидного сообщения."""
     # Act / Assert
     with pytest.raises(IntegrityError):
-        await MessageDAO(db_session).add(sender_id=1, recipient_id=2, body="no users")
+        await MessageDAO(db_session).add(chat_id=1, sender_id=1, body="no chat")
 
 
 async def test_error_find_by_forbidden_field(db_session: AsyncSession) -> None:

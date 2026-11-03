@@ -65,3 +65,46 @@ async def clear_pg_database(conn: Connection) -> None:
     if tables:
         names = ", ".join(f'"{table["tablename"]}"' for table in tables)
         await conn.execute(f"TRUNCATE {names} RESTART IDENTITY CASCADE")
+
+
+async def _fetch(queries: tuple[tuple[str, tuple], ...]) -> list[asyncpg.Record]:
+    conn = await asyncpg.connect(
+        host=settings.db_host,
+        port=settings.db_port,
+        user=settings.db_user,
+        password=settings.db_pass,
+        database=settings.db_name,
+    )
+    try:
+        result: list[asyncpg.Record] = []
+        for query, args in queries:
+            result = await conn.fetch(query, *args)
+        return result
+    finally:
+        await conn.close()
+
+
+def run_sql(*queries: tuple[str, tuple]) -> list[asyncpg.Record]:
+    """Выполняет запросы в тестовой БД и возвращает результат последнего (для синхронных тестов миграций)."""
+    assert_test_database(settings.db_name)
+    return asyncio.run(_fetch(queries))
+
+
+def clear_data() -> None:
+    """Чистит данные всех таблиц тестовой БД на любой ревизии схемы."""
+
+    async def clear() -> None:
+        conn = await asyncpg.connect(
+            host=settings.db_host,
+            port=settings.db_port,
+            user=settings.db_user,
+            password=settings.db_pass,
+            database=settings.db_name,
+        )
+        try:
+            await clear_pg_database(conn)
+        finally:
+            await conn.close()
+
+    assert_test_database(settings.db_name)
+    asyncio.run(clear())

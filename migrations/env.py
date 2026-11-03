@@ -11,7 +11,7 @@ from fast_chat.config import settings
 from fast_chat.database import Base
 from fast_chat.models.user import User  # noqa
 from fast_chat.models.message import Message  # noqa
-from fast_chat.models.conversation import Conversation  # noqa
+from fast_chat.models.chat import Chat, ChatMember  # noqa
 
 
 # this is the Alembic Config object, which provides

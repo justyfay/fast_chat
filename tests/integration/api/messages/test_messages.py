@@ -25,9 +25,11 @@ async def test_send_message_saves_encrypted_body(
     # Assert
     assert resp.status_code == status.HTTP_200_OK
     assert resp.json() == payload
-    row = await pg_conn.fetchrow("SELECT * FROM message")
+    row = await pg_conn.fetchrow(
+        "SELECT m.*, c.direct_key FROM message m JOIN chat c ON c.id = m.chat_id"
+    )
     assert row["sender_id"] == user_one.id
-    assert row["recipient_id"] == user_two.id
+    assert row["direct_key"] == f"{user_one.id}:{user_two.id}"
     assert row["body"] != payload["body"]
     assert decrypt(row["body"]) == payload["body"]
 
@@ -133,3 +135,18 @@ async def test_messages_without_cookie_redirect_to_login(
     # Assert
     assert resp.status_code == status.HTTP_307_TEMPORARY_REDIRECT
     assert resp.headers["location"] == RoutersTestData.LOGIN_PAGE_URL
+
+
+async def test_error_send_message_to_unknown_user(
+    main_client: TestClient, pg_conn: Connection, user_one: UserData
+) -> None:
+    """Сообщение несуществующему пользователю возвращает 404 и ничего не сохраняет"""
+    # Act
+    resp = await main_client.post(
+        RoutersTestData.MESSAGES_SEND_URL,
+        json={"recipient_id": 999999, "body": "привет"},
+    )
+
+    # Assert
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert await pg_conn.fetchval("SELECT count(*) FROM message") == 0

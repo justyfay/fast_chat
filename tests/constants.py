@@ -15,7 +15,7 @@ class RoutersTestData:
     CURRENT_USER_URL = "/v1/users/current_user"
     ALL_USERS_URL = "/v1/users/all"
 
-    # Беседы
+    # Чаты
     CONVERSATIONS_URL = "/v1/conversations/"
     CONVERSATIONS_SEARCH_URL = "/v1/conversations/search"
 
@@ -115,6 +115,14 @@ class TokenTestData:
 
 class MigrationTestData:
     BEFORE_USER_UNIQUE_REVISION = "b2c3d4e5f6a7"
+    USER_UNIQUE_REVISION = "c3d4e5f6a7b8"
+    BEFORE_CHAT_MODEL_REVISION = "c3d4e5f6a7b8"
+    OLD_MESSAGE_INSERT = (
+        "INSERT INTO message (sender_id, recipient_id, body) VALUES ($1, $2, $3)"
+    )
+    OLD_CONVERSATION_INSERT = (
+        "INSERT INTO conversation (user_id, recipient_id) VALUES ($1, $2)"
+    )
     USER_INSERT = (
         'INSERT INTO "user" (email, username, full_name, hashed_password, created_at) '
         "VALUES ($1, $1, $2, 'hash', now())"
